@@ -5,12 +5,12 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # **********************************************
-# **** আপনার গোপনীয় কী গুলো (আপনার দেওয়া তথ্য) ****
+# **** ক্লাউড হোস্টিং-এর জন্য এনভায়রনমেন্ট ভেরিয়েবল ****
 # **********************************************
-API_ID = 28298245
-API_HASH = "e4df3b85b3cc1c178120f2076d1685a2"
-BOT_TOKEN = "8408784365:AAGdHhfFimVY30QMB1SGqFOzkyf9gbxcd-8"
-OWNER_ID = 7702378694 # আপনার নিজের Telegram ID (সংখ্যা) এখানে বসান
+API_ID = os.environ.get("API_ID")
+API_HASH = os.environ.get("API_HASH")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+OWNER_ID = 7702378694 # আপনার নিজের Telegram ID (সংখ্যা) এখানে বসান (এটি Railway-তে পরিবর্তন করা লাগবে না)
 # **********************************************
 
 # ডেটাবেস কনফিগারেশন
