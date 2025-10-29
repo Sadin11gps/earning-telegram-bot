@@ -12,6 +12,7 @@ from pyrogram.types import (
 # **********************************************
 # **** ক্লাউড হোস্টিং-এর জন্য এনভায়রনমেন্ট ভেরিয়েবল ****
 # **********************************************
+# এই Key গুলো Railway Variables থেকে স্বয়ংক্রিয়ভাবে আসবে
 API_ID = os.environ.get("API_ID")
 API_HASH = os.environ.get("API_HASH")
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -22,10 +23,11 @@ ADMIN_CONTACT_USERNAME = "rdsratul81" # যোগাযোগের জন্য
 # **********************************************
 
 # **********************************************
-# **** বটের ব্যবসায়িক লজিক ভেরিয়েবল ****
+# **** বটের ব্যবসায়িক লজিক ভেরিয়েবল (আপডেট করা হয়েছে) ****
 # **********************************************
-REFER_BONUS = 30.00      # প্রতি রেফারে 30 টাকা
-MIN_WITHDRAW = 50.00     # সর্বনিম্ন 50 টাকা হলে উইথড্র করা যাবে
+REFER_BONUS = 30.00          # প্রতি রেফারে 30 টাকা
+MIN_WITHDRAW = 1500.00       # সর্বনিম্ন 1500 টাকা হলে উইথড্র করা যাবে
+WITHDRAW_FEE_PERCENT = 10.0  # 10% উইথড্র ফি
 # **********************************************
 
 
@@ -33,7 +35,7 @@ MIN_WITHDRAW = 50.00     # সর্বনিম্ন 50 টাকা হলে
 conn = sqlite3.connect('user_data.db', check_same_thread=False)
 cursor = conn.cursor()
 
-# ইউজার টেবিল পরিবর্তন: ব্যালেন্স দুটি ভাগে ভাগ করা হলো
+# ইউজার টেবিল তৈরি/আপডেট
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
         user_id INTEGER PRIMARY KEY,
@@ -62,7 +64,7 @@ conn.commit()
 
 # --- কীবোর্ড সেটআপ ---
 
-# মূল মেনুর বাটন (Reply Keyboard) - "History" এবং "Stats" এর জন্য বাটন যুক্ত করা হয়েছে
+# মূল মেনুর বাটন (Reply Keyboard) - "History" এবং "Stats" সহ
 main_menu_keyboard = ReplyKeyboardMarkup(
     [
         [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
@@ -119,8 +121,8 @@ def add_user(user_id, referred_by=None):
             # রেফারেল বোনাস যোগ করা
             cursor.execute("UPDATE users SET referral_balance = referral_balance + ?, referral_count = referral_count + 1 WHERE user_id = ?", (REFER_BONUS, referred_by))
             conn.commit()
-            return True # নতুন ইউজার যোগ হলো এবং রেফার বোনাস দেওয়া হলো
-    return False # ইউজার আগে থেকেই আছে
+            return True
+    return False
 
 # --- ফাংশন: ইউজার ব্লক স্ট্যাটাস ---
 def is_user_blocked(user_id):
@@ -209,7 +211,13 @@ async def account_command(client, message):
 
     user_id = message.from_user.id
     cursor.execute("SELECT task_balance, referral_balance, referral_count FROM users WHERE user_id = ?", (user_id,))
-    task_balance, referral_balance, ref_count = cursor.fetchone()
+    data = cursor.fetchone()
+    if data:
+        task_balance, referral_balance, ref_count = data
+    else:
+        # যদি কোনোভাবে ইউজার না পাওয়া যায়
+        task_balance, referral_balance, ref_count = 0.00, 0.00, 0
+        
     total_balance = task_balance + referral_balance
     
     text = (
@@ -225,13 +233,15 @@ async def account_command(client, message):
     await message.reply_text(text)
 
 
-# --- হ্যান্ডলার: 💳 Withdraw (উইথড্র রিকোয়েস্ট জমা নেওয়া) ---
+# --- হ্যান্ডলার: 💳 Withdraw ---
 @app.on_message(filters.regex("💳 Withdraw"))
 async def withdraw_command(client, message):
     if is_user_blocked(message.from_user.id): return
     
+    # এখানে উইথড্র লজিক যোগ করতে হবে। বর্তমানে শুধু মেসেজ দেখাচ্ছে।
     await message.reply_text(
-        "উইথড্রল রিকোয়েস্টের জন্য এখানে পরে কোডিং তৈরি করা হবে।"
+        f"❌ দুঃখিত! টাকা তোলার জন্য আপনার সর্বনিম্ন **{MIN_WITHDRAW:.2f} টাকা** প্রয়োজন।\n"
+        f"উত্তোলন ফি: **{WITHDRAW_FEE_PERCENT:.0f}%**।"
     )
 
 
@@ -290,6 +300,7 @@ async def task_callback_handler(client, callback_query):
 # --- ক্যোয়ারি হ্যান্ডলার: Main Menu বাটন ---
 @app.on_callback_query(filters.regex("^main_menu"))
 async def back_to_main_menu(client, callback_query):
+    # যখন ইউজার Inline বাটন ব্যবহার করে Main Menu-তে ফিরতে চায়
     await callback_query.edit_message_text(
         "👋 আপনি মূল মেনুতে ফিরে এসেছেন। নিচে মূল মেনু দেওয়া হলো:",
         reply_markup=main_menu_keyboard
@@ -297,7 +308,7 @@ async def back_to_main_menu(client, callback_query):
     await callback_query.answer("মূল মেনুতে ফিরে গেছেন।")
 
 
-# --- অ্যাডমিন কমান্ড হ্যান্ডলার ---
+# --- অ্যাডমিন কমান্ড হ্যান্ডলার: /stats ---
 @app.on_message(filters.command("stats"))
 async def stats_admin_command(client, message):
     if message.from_user.id != OWNER_ID: return
@@ -325,7 +336,7 @@ async def send_to_user(client, message):
         await client.send_message(user_id, f"✉️ অ্যাডমিনের মেসেজ:\n\n{msg}")
         await message.reply_text(f"✅ মেসেজটি ইউজার {user_id} কে পাঠানো হয়েছে।")
     except Exception as e:
-        await message.reply_text(f"❌ কমান্ড ত্রুটি। ব্যবহার: `/send <user_id> <message>`\nError: {e}")
+        await message.reply_text(f"❌ কমান্ড ত্রুটি। ব্যবহার: `/send <user_id> <message>`")
 
 
 # --- অ্যাডমিন কমান্ড: /broadcast (সবাইকে মেসেজ) ---
@@ -344,7 +355,7 @@ async def broadcast_message(client, message):
                 await client.send_message(user[0], f"📢 **অ্যাডমিন ব্রডকাস্ট**\n\n{msg}")
                 sent_count += 1
             except Exception:
-                pass # ব্লক বা অন্য কোনো কারণে মেসেজ না গেলে উপেক্ষা করা
+                pass
         
         await message.reply_text(f"✅ ব্রডকাস্ট সফল। মোট {sent_count} জন ইউজারকে পাঠানো হয়েছে।")
     except IndexError:
@@ -396,7 +407,7 @@ async def user_list_command(client, message):
         except Exception:
             user_name = "Deleted Account"
             
-        list_text += (
+        new_entry = (
             f"{i+1}. 👤 User name: {user_name}\n"
             f" 🆔 User ID: `{user_id}`\n"
             f" 💰 Balance: {total_balance:.2f} ৳\n"
@@ -405,15 +416,16 @@ async def user_list_command(client, message):
             "------------------------\n"
         )
         
-        # মেসেজের সীমা অতিক্রম যাতে না করে
-        if len(list_text) > 3500:
+        if len(list_text) + len(new_entry) > 3800: # মেসেজের সীমা
             await message.reply_text(list_text)
             list_text = "👥 **ইউজার তালিকা (চলমান)**\n\n"
+            
+        list_text += new_entry
             
     await message.reply_text(list_text)
 
 
-# --- অ্যাডমিন কমান্ড: /withdraw (উইথড্র রিকোয়েস্ট দেখানো) ---
+# --- অ্যাডমিন কমান্ড: /withdraws (উইথড্র রিকোয়েস্ট দেখানো) ---
 @app.on_message(filters.command("withdraws"))
 async def admin_withdraw_list(client, message):
     if message.from_user.id != OWNER_ID: return
@@ -489,9 +501,13 @@ async def withdraw_action_handler(client, callback_query):
     
     # 2. Reject হলে ব্যালেন্স ফিরিয়ে দেওয়া
     if new_status == "Rejected":
-        cursor.execute("UPDATE users SET task_balance = task_balance + ? WHERE user_id = ?", (amount, user_id))
+        # Note: এখানে ফি এর কোনো হিসাব নেই কারণ টাকাটি ডেটাবেসে ছিল, শুধু স্ট্যাটাস আপডেট হচ্ছে।
+        # যখন উইথড্র রিকোয়েস্ট তৈরি হবে, তখন ফি-এর হিসাব যোগ করা হবে।
+        # আপাতত পুরো টাকাটাই ফিরিয়ে দেওয়া হলো।
+        cursor.execute("UPDATE users SET task_balance = task_balance + ? WHERE user_id = ?", (amount, user_id)) 
         await client.send_message(user_id, f"❌ দুঃখিত! আপনার **{amount:.2f} টাকা** উত্তোলনের অনুরোধটি বাতিল করা হয়েছে। টাকা আপনার অ্যাকাউন্টে ফেরত দেওয়া হয়েছে।")
     else:
+        # Approve হলে টাকা তোলাই ছিল, শুধু স্ট্যাটাস আপডেট হবে।
         await client.send_message(user_id, f"✅ অভিনন্দন! আপনার **{amount:.2f} টাকা** উত্তোলনের অনুরোধটি সফলভাবে অনুমোদিত হয়েছে। আপনি শীঘ্রই আপনার পেমেন্ট পেয়ে যাবেন।")
 
     conn.commit()
@@ -502,8 +518,15 @@ async def withdraw_action_handler(client, callback_query):
 
 
 # --- নন-কমান্ড মেসেজ হ্যান্ডলার (এডমিনের কাছে ট্রান্সফার) ---
-@app.on_message(filters.text & ~filters.command & ~filters.regex("💰 Daily Bonus|🔗 Refer & Earn|💳 Withdraw|👤 My Account|🧾 History|👑 Status \\(Admin\\)"))
+@app.on_message(filters.text & ~filters.command)
 async def forward_to_admin(client, message):
+    
+    # এটি নিশ্চিত করে যে এটি কোনো মেনু বাটন ক্লিক নয়
+    main_menu_texts = ["💰 Daily Bonus", "🔗 Refer & Earn", "💳 Withdraw", "👤 My Account", "🧾 History", "👑 Status (Admin)"]
+    if message.text in main_menu_texts:
+        # যদি এটি মেনুর মেসেজ হয়, তবে এটি উপেক্ষা করবে, অন্য কোনো হ্যান্ডলার এটি গ্রহণ করবে
+        return
+        
     user_id = message.from_user.id
     
     # ইউজার ব্লক করা থাকলে কিছু করবে না
