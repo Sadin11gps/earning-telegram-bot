@@ -129,4 +129,6 @@ def setup_task_handlers(app: Client):
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("📂 OPEN 📂", url=VISIT_LINK)],
             [InlineKeyboardButton("⏱ START TIMER", callback_data=f"start_{TASK_NAME.lower().replace('-', '_')}")],
-            [InlineKeyboardButton("✅
+            [InlineKeyboardButton("✅ I Have Visited (Check)", callback_data=f"check_{TASK_NAME.lower().replace('-', '_')}")] 
+        ])
+
