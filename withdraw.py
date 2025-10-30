@@ -25,12 +25,12 @@ withdraw_method_keyboard = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-# মূল মেনুর বাটন (Reply Keyboard) - WITHDRAW ফিক্সড
+# মূল মেনুর বাটন (Reply Keyboard) - WITHDRAW NOW ফিক্সড
 main_menu_keyboard = ReplyKeyboardMarkup(
     [
         [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
         # ফিক্সড: ইমোজি ছাড়া শুধু 'Withdraw' ব্যবহার করা হয়েছে
-        [KeyboardButton("Withdraw"), KeyboardButton("👤 My Account")],
+        [KeyboardButton("WITHRAW NOW"), KeyboardButton("👤 My Account")],
         [KeyboardButton("🧾 History"), KeyboardButton("👑 Status (Admin)")]
     ],
     resize_keyboard=True
@@ -47,11 +47,11 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
     # হ্যান্ডলার ১: Withdraw কমান্ড শুরু (ULTIMATE FIX: Case-Insensitive)
     # -----------------------------------------------------
     # হ্যান্ডলার এখন "Withdraw" শব্দটিকে (কেস ইগনোর করে) ধরে
-    @app.on_message(filters.regex("Withdraw", flags=filters.re.IGNORECASE) & filters.private) 
+    @app.on_message(filters.regex("WITHDRAW NOW", flags=filters.re.IGNORECASE) & filters.private) 
     async def withdraw_start(client, message):
         
         # *** চূড়ান্ত ফিক্স ***
-        # যদি মেসেজ টেক্সটটি 'withdraw' এর সমান না হয় (কেস ইগনোর করে), তবে সাইলেন্টলি বের হয়ে যাও।
+        # যদি মেসেজ টেক্সটটি 'WIYHDRAW 3' এর সমান না হয় (কেস ইগনোর করে), তবে সাইলেন্টলি বের হয়ে যাও।
         if message.text.strip().lower() != "withdraw":
             return
             

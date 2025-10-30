@@ -103,8 +103,7 @@ main_menu_keyboard = ReplyKeyboardMarkup(
     [
         [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
         # ফিক্সড: ইমোজি ছাড়া শুধু 'Withdraw' ব্যবহার করা হয়েছে
-        [KeyboardButton("Withdraw"), KeyboardButton("👤 My Account")],
-        [KeyboardButton("🧾 History"), KeyboardButton("👑 Status (Admin)")]
+        [KeyboardButton("WITHDRAW_NOW"), KeyboardButton("👤 My Account")],        [KeyboardButton("🧾 History"), KeyboardButton("👑 Status (Admin)")]
     ],
     resize_keyboard=True
 )
