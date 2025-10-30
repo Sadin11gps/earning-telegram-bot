@@ -7,7 +7,10 @@ from pyrogram.types import (
     InlineKeyboardButton,
     ReplyKeyboardMarkup,
     KeyboardButton
+    # ✅ FIX: Message, CallbackQuery কে আলাদাভাবে ইমপোর্ট করা হলো exec() এর জন্য
 )
+from pyrogram.types import Message, CallbackQuery 
+
 
 # **********************************************
 # --- ✅ ফিক্সড মডিউল ইম্পোর্ট ---
@@ -27,7 +30,6 @@ import task_10
 
 # --- টাস্ক হ্যান্ডলার সেটআপ ফাংশন ---
 def setup_task_handlers(app: Client):
-    # প্রতিটি Task মডিউলের সেটআপ ফাংশন এখানে কল করা হবে (Task ফাইলগুলোতে setup_task_handlers ফাংশন আছে)
     task_1.setup_task_handlers(app)
     task_2.setup_task_handlers(app)
     task_3.setup_task_handlers(app)
@@ -96,7 +98,7 @@ conn.commit()
 
 # --- কীবোর্ড সেটআপ ---
 
-# মূল মেনুর বাটন (Reply Keyboard) - আপনার আসল কোড থেকে নেওয়া
+# মূল মেনুর বাটন (Reply Keyboard)
 main_menu_keyboard = ReplyKeyboardMarkup(
     [
         [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
@@ -106,7 +108,7 @@ main_menu_keyboard = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-# 🟢 ✅ ফিক্সড: টাস্ক মেনুর বাটন (Reply Keyboard) - আপনার স্ক্রিনশট অনুযায়ী পরিবর্তন করা হয়েছে
+# ✅ ফিক্সড: টাস্ক মেনুর বাটন (Reply Keyboard)
 TASK_MENU_KEYBOARD_REPLY = ReplyKeyboardMarkup(
     [
         [KeyboardButton("🏅 TASK-1_10 TK"), KeyboardButton("🏅 TASK-2_10 TK")],
@@ -140,7 +142,7 @@ def add_user(user_id, referred_by=None):
             return True
     return False
 
-# --- ✅ ফিক্সড: ব্লকড ইউজার চেক (সিম্পল ফাংশন) ---
+# --- ফিক্সড: ব্লকড ইউজার চেক ---
 def is_user_blocked(user_id):
     cursor.execute("SELECT is_blocked FROM users WHERE user_id = ?", (user_id,))
     result = cursor.fetchone()
@@ -188,7 +190,7 @@ async def daily_bonus_handler(client, message):
     await message.reply_text(
         "✅ Task complete করতে নিচের বাটনগুলো ব্যবহার করুন.\n"
         "✅ নিয়ম মেনে কাজ করবেন ইনকাম নিশ্চিত🚀",
-        reply_markup=TASK_MENU_KEYBOARD_REPLY # 🟢 ফিক্সড: এখানে Reply Keyboard ব্যবহার করা হয়েছে
+        reply_markup=TASK_MENU_KEYBOARD_REPLY # ✅ ফিক্সড: Reply Keyboard
     )
 
 # --- হ্যান্ডলার: MAIN MENU বাটন ---
@@ -200,7 +202,7 @@ async def back_to_main_menu(client, message):
     )
 
 
-# --- হ্যান্ডলার: Refer & Earn --- (আপনার কোড অক্ষত)
+# --- হ্যান্ডলার: Refer & Earn ---
 @app.on_message(filters.regex("🔗 Refer & Earn"))
 async def refer_command(client, message):
     if is_user_blocked(message.from_user.id): return
@@ -225,7 +227,7 @@ async def refer_command(client, message):
     await message.reply_text(text)
 
 
-# --- হ্যান্ডলার: My Account --- (আপনার কোড অক্ষত)
+# --- হ্যান্ডলার: My Account ---
 @app.on_message(filters.regex("👤 My Account"))
 async def account_command(client, message):
     if is_user_blocked(message.from_user.id): return
@@ -252,7 +254,7 @@ async def account_command(client, message):
     await message.reply_text(text)
 
 
-# --- হ্যান্ডলার: History --- (আপনার কোড অক্ষত)
+# --- হ্যান্ডলার: History ---
 @app.on_message(filters.regex("🧾 History"))
 async def history_command(client, message):
     if is_user_blocked(message.from_user.id): return
@@ -284,7 +286,7 @@ async def history_command(client, message):
     await message.reply_text(history_text)
 
 
-# --- হ্যান্ডলার: Status (Admin) --- (আপনার কোড অক্ষত)
+# --- হ্যান্ডলার: Status (Admin) ---
 @app.on_message(filters.regex("👑 Status \\(Admin\\)"))
 async def admin_status_command(client, message):
     if is_user_blocked(message.from_user.id): return
@@ -303,12 +305,14 @@ for i in range(1, 11):
     button_text = f"🏅 {task_name}_10 TK"
     callback_data = f"task_{i}_" # এটি task_x.py এর Handler 4 কে ট্রিগার করবে
     
-    # exec() ব্যবহার করে ডায়নামিকালি হ্যান্ডলার তৈরি
+    # 💥 FIX: exec() ব্লকের ভেতরে Message এবং InlineKeyboardButton ইমপোর্ট করা হয়েছে
     exec(f"""
 @app.on_message(filters.regex("{button_text}") & filters.private)
 async def show_task_{i}_details(client: Client, message: Message):
+    # ✅ FIX: NameError এড়াতে এখানে Pyrogram.types থেকে সরাসরি কল করা হয়েছে
+    from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton 
+    
     keyboard = InlineKeyboardMarkup([
-        # এটি task_{i}.py এর 'show_task_inline_buttons' কে ট্রিগার করবে
         [InlineKeyboardButton("✅ কাজ শুরু করুন", callback_data="{callback_data}")]
     ])
     await message.reply_text(
@@ -320,17 +324,7 @@ async def show_task_{i}_details(client: Client, message: Message):
 # =========================================================
 
 
-# --- ক্যোয়ারি হ্যান্ডলার: টাস্ক বাটনগুলো (আপনার পূর্বের লজিক) ---
-# NOTE: এই হ্যান্ডলারটি এখন অপ্রয়োজনীয়, কারণ আমরা ReplyKeyboard ব্যবহার করছি
-@app.on_callback_query(filters.regex("^task_"))
-async def task_callback_handler(client, callback_query):
-    # এই হ্যান্ডলারটি এখন অপ্রয়োজনীয় এবং এটি আপনার টাস্ক ফ্লো-এর সমস্যাটি ঘটাচ্ছিল।
-    # এটি মূলত ইনলাইন বাটন ক্লিক ধরছিল, কিন্তু আমরা এখন মেসেজ হ্যান্ডলার ব্যবহার করছি।
-    # তবে যেহেতু এটি আপনার কোডে ছিল, এটি একটি ফলব্যাক হিসেবে থাকুক।
-    await callback_query.answer("টাস্ক শুরু করতে 'কাজ শুরু করুন' ইনলাইন বাটন টিপুন।")
-    
-
-# --- ক্যোয়ারি হ্যান্ডলার: Main Menu বাটন --- (আপনার কোড অক্ষত)
+# --- ক্যোয়ারি হ্যান্ডলার: Main Menu বাটন (Inline) ---
 @app.on_callback_query(filters.regex("^main_menu"))
 async def back_to_main_menu_callback(client, callback_query):
     await callback_query.edit_message_text(
@@ -340,7 +334,7 @@ async def back_to_main_menu_callback(client, callback_query):
     await callback_query.answer("মূল মেনুতে ফিরে গেছেন।")
 
 
-# --- চূড়ান্ত ফিক্স: নন-কমান্ড মেসেজ হ্যান্ডলার (আপনার কোড অক্ষত) ---
+# --- চূড়ান্ত ফিক্স: নন-কমান্ড মেসেজ হ্যান্ডলার ---
 @app.on_message(filters.private & filters.text & ~filters.regex("^Withdraw$")) 
 async def process_text_messages(client, message):
     
@@ -368,9 +362,8 @@ async def process_text_messages(client, message):
 # **********************************************
 
 # 1. হ্যান্ডলার মডিউলগুলো চালু করা
-# group=-1 মানে সর্বোচ্চ অগ্রাধিকার
 withdraw_mod.setup_withdraw_handlers(app, USER_STATE, group=-1) 
-setup_task_handlers(app) # Task হ্যান্ডলার কল
+setup_task_handlers(app) 
 
 # --- বট চালানো ---
 print("Telegram Earning Bot is starting...")
