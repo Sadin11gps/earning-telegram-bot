@@ -66,36 +66,6 @@ REQUIRED_REFERRALS = 20
 # **********************************************
 
 
-# --- Database সেটআপ ---
-conn = sqlite3.connect('user_data.db', check_same_thread=False)
-cursor = conn.cursor()
-
-# ইউজার টেবিল তৈরি/আপডেট
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        user_id INTEGER PRIMARY KEY,
-        task_balance REAL DEFAULT 0.00,
-        referral_balance REAL DEFAULT 0.00,
-        referral_count INTEGER DEFAULT 0,
-        referred_by INTEGER,
-        is_blocked INTEGER DEFAULT 0,
-        last_bonus_time INTEGER DEFAULT 0
-    )
-''')
-
-# উইথড্র হিস্টরি টেবিল 
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS withdraw_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        amount REAL,
-        method TEXT,
-        account_number TEXT,
-        status TEXT DEFAULT 'Pending',
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-''')
-conn.commit()
 
 # --- কীবোর্ড সেটআপ ---
 
