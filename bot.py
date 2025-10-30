@@ -12,11 +12,7 @@ from pyrogram.types import (
 # **********************************************
 # --- ✅ ফিক্সড মডিউল ইম্পোর্ট ---
 # **********************************************
-# NOTE: আমরা withdraw.py-কে withdraw_handlers.py নাম দিচ্ছি যাতে ফাইল নামের কনভেনশন ঠিক থাকে
-# NOTE: admin.py-এর লজিক আমরা নিরাপত্তার জন্য bot.py-এর ভেতরেই রেখেছি, admin ফাইল অপ্রয়োজনীয়
-import withdraw_handlers as withdraw_mod # মডিউলটির নাম ছোট করলাম
-
-# Task মডিউলগুলো (আপনার প্রয়োজন অনুযায়ী)
+import withdraw_handlers as withdraw_mod 
 import task_1 
 import task_2 
 import task_3 
@@ -52,14 +48,13 @@ API_HASH = os.environ.get("API_HASH")
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
 # **** অ্যাডমিন আইডি (আপনার Telegram ID) ****
-OWNER_ID = 7702378694  # আপনার অ্যাডমিন আইডি
+OWNER_ID = 7702378694  
 ADMIN_CONTACT_USERNAME = "rdsratul81" 
 # **********************************************
 
 # **********************************************
 # **** গ্লোবাল স্টেট এবং ব্যবসায়িক লজিক ভেরিয়েবল ****
 # **********************************************
-# USER_STATE এখানে ডিফাইন করা হলো যাতে withdraw_handlers এটি ব্যবহার করতে পারে
 USER_STATE = {} 
 REFER_BONUS = 30.00          
 MIN_WITHDRAW = 1500.00       
@@ -111,34 +106,19 @@ main_menu_keyboard = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-# টাস্ক মেনুর বাটন (Inline Keyboard) - আপনার আসল কোড থেকে নেওয়া
-task_menu_keyboard = InlineKeyboardMarkup(
+# 🟢 ✅ ফিক্সড: টাস্ক মেনুর বাটন (Reply Keyboard) - আপনার স্ক্রিনশট অনুযায়ী পরিবর্তন করা হয়েছে
+TASK_MENU_KEYBOARD_REPLY = ReplyKeyboardMarkup(
     [
-        [
-            InlineKeyboardButton("🏅 TASK-1_10 TK", callback_data="task_1_10"),
-            InlineKeyboardButton("🏅 TASK-2_10 TK", callback_data="task_2_10")
-        ],
-        [
-            InlineKeyboardButton("🏅 TASK-3_10 TK", callback_data="task_3_10"),
-            InlineKeyboardButton("🏅 TASK-4_10 TK", callback_data="task_4_10")
-        ],
-        [
-            InlineKeyboardButton("🏅 TASK-5_10 TK", callback_data="task_5_10"),
-            InlineKeyboardButton("🏅 TASK-6_10 TK", callback_data="task_6_10")
-        ],
-        [
-            InlineKeyboardButton("🏅 TASK-7_10 TK", callback_data="task_7_10"),
-            InlineKeyboardButton("🏅 TASK-8_10 TK", callback_data="task_8_10")
-        ],
-        [
-            InlineKeyboardButton("🏅 TASK-9_10 TK", callback_data="task_9_10"),
-            InlineKeyboardButton("🏅 TASK-10_10 TK", callback_data="task_10_10")
-        ],
-        [
-            InlineKeyboardButton("🏠 MAIN MENU", callback_data="main_menu")
-        ]
-    ]
+        [KeyboardButton("🏅 TASK-1_10 TK"), KeyboardButton("🏅 TASK-2_10 TK")],
+        [KeyboardButton("🏅 TASK-3_10 TK"), KeyboardButton("🏅 TASK-4_10 TK")],
+        [KeyboardButton("🏅 TASK-5_10 TK"), KeyboardButton("🏅 TASK-6_10 TK")],
+        [KeyboardButton("🏅 TASK-7_10 TK"), KeyboardButton("🏅 TASK-8_10 TK")],
+        [KeyboardButton("🏅 TASK-9_10 TK"), KeyboardButton("🏅 TASK-10_10 TK")],
+        [KeyboardButton("🏠 MAIN MENU")]
+    ],
+    resize_keyboard=True
 )
+
 
 # --- Pyrogram ক্লায়েন্ট সেটআপ ---
 app = Client(
@@ -185,8 +165,7 @@ async def start_command(client, message):
             if referred_by == user_id or cursor.fetchone() is None:
                  referred_by = None
             else:
-                # add_user ফাংশনের ভেতরে রেফারেল লজিক আছে
-                pass # লজিক নিচে add_user এর ভেতরে থাকবে
+                pass 
         except ValueError:
             referred_by = None
             
@@ -209,11 +188,19 @@ async def daily_bonus_handler(client, message):
     await message.reply_text(
         "✅ Task complete করতে নিচের বাটনগুলো ব্যবহার করুন.\n"
         "✅ নিয়ম মেনে কাজ করবেন ইনকাম নিশ্চিত🚀",
-        reply_markup=task_menu_keyboard
+        reply_markup=TASK_MENU_KEYBOARD_REPLY # 🟢 ফিক্সড: এখানে Reply Keyboard ব্যবহার করা হয়েছে
+    )
+
+# --- হ্যান্ডলার: MAIN MENU বাটন ---
+@app.on_message(filters.regex("🏠 MAIN MENU") & filters.private)
+async def back_to_main_menu(client, message):
+    await message.reply_text(
+        "👋 আপনি মূল মেনুতে ফিরে এসেছেন।",
+        reply_markup=main_menu_keyboard
     )
 
 
-# --- হ্যান্ডলার: Refer & Earn ---
+# --- হ্যান্ডলার: Refer & Earn --- (আপনার কোড অক্ষত)
 @app.on_message(filters.regex("🔗 Refer & Earn"))
 async def refer_command(client, message):
     if is_user_blocked(message.from_user.id): return
@@ -238,7 +225,7 @@ async def refer_command(client, message):
     await message.reply_text(text)
 
 
-# --- হ্যান্ডলার: My Account ---
+# --- হ্যান্ডলার: My Account --- (আপনার কোড অক্ষত)
 @app.on_message(filters.regex("👤 My Account"))
 async def account_command(client, message):
     if is_user_blocked(message.from_user.id): return
@@ -265,7 +252,7 @@ async def account_command(client, message):
     await message.reply_text(text)
 
 
-# --- হ্যান্ডলার: History ---
+# --- হ্যান্ডলার: History --- (আপনার কোড অক্ষত)
 @app.on_message(filters.regex("🧾 History"))
 async def history_command(client, message):
     if is_user_blocked(message.from_user.id): return
@@ -297,7 +284,7 @@ async def history_command(client, message):
     await message.reply_text(history_text)
 
 
-# --- হ্যান্ডলার: Status (Admin) ---
+# --- হ্যান্ডলার: Status (Admin) --- (আপনার কোড অক্ষত)
 @app.on_message(filters.regex("👑 Status \\(Admin\\)"))
 async def admin_status_command(client, message):
     if is_user_blocked(message.from_user.id): return
@@ -309,31 +296,43 @@ async def admin_status_command(client, message):
     await message.reply_text(text, reply_markup=contact_button)
 
 
-# --- ক্যোয়ারি হ্যান্ডলার: টাস্ক বাটনগুলো (Daily Bonus মেনুর ইনলাইন বাটন) ---
+# 🟢 ✅ চূড়ান্ত ফিক্স: ডায়নামিক টাস্ক বাটন হ্যান্ডলারস
+# (Reply Keyboard এর বাটনগুলোতে ক্লিক করলে Inline Keyboard দেখানোর লজিক)
+for i in range(1, 11):
+    task_name = f"TASK-{i}"
+    button_text = f"🏅 {task_name}_10 TK"
+    callback_data = f"task_{i}_" # এটি task_x.py এর Handler 4 কে ট্রিগার করবে
+    
+    # exec() ব্যবহার করে ডায়নামিকালি হ্যান্ডলার তৈরি
+    exec(f"""
+@app.on_message(filters.regex("{button_text}") & filters.private)
+async def show_task_{i}_details(client: Client, message: Message):
+    keyboard = InlineKeyboardMarkup([
+        # এটি task_{i}.py এর 'show_task_inline_buttons' কে ট্রিগার করবে
+        [InlineKeyboardButton("✅ কাজ শুরু করুন", callback_data="{callback_data}")]
+    ])
+    await message.reply_text(
+        f"🏅 **{task_name}** শুরু করতে প্রস্তুত?\\n"
+        "অনুগ্রহ করে **'কাজ শুরু করুন'** বাটনে ক্লিক করে টাস্ক শুরু করুন:",
+        reply_markup=keyboard
+    )
+    """)
+# =========================================================
+
+
+# --- ক্যোয়ারি হ্যান্ডলার: টাস্ক বাটনগুলো (আপনার পূর্বের লজিক) ---
+# NOTE: এই হ্যান্ডলারটি এখন অপ্রয়োজনীয়, কারণ আমরা ReplyKeyboard ব্যবহার করছি
 @app.on_callback_query(filters.regex("^task_"))
 async def task_callback_handler(client, callback_query):
-    # এই কলব্যাকটি task_X.py ফাইলগুলোর মূল লজিক শুরু করবে
-    # task_X.py ফাইলগুলো এই কলব্যাকটি ধরার জন্য তৈরি করা হয়েছে
-    
-    task_data = callback_query.data # যেমন: 'task_1_10'
-    task_num = task_data.split('_')[0].split('task_')[1] # যেমন: '1'
-
-    # Task লজিক কল করার জন্য উপযুক্ত মেসেজ তৈরি করা
-    task_logic = f"TASK-{task_num}" # task_X.py হ্যান্ডলারের regex এখানে ধরবে
-    
-    # যেহেতু আসল লজিক task_X.py-এ, তাই আমরা ইউজারকে মূল মেসেজটি আবার দেখাবো
-    await callback_query.edit_message_text(
-        f"আপনি **Task {task_num}** নির্বাচন করেছেন। এখন নিচের 'START TIMER' বাটনটি ব্যবহার করুন।\n"
-        f"যদি বাটন না আসে, তবে মূল মেনু থেকে আবার **💰 Daily Bonus** টিপুন।",
-        reply_markup=task_menu_keyboard
-    )
-    await callback_query.answer(f"Task {task_num} শুরু হচ্ছে।")
+    # এই হ্যান্ডলারটি এখন অপ্রয়োজনীয় এবং এটি আপনার টাস্ক ফ্লো-এর সমস্যাটি ঘটাচ্ছিল।
+    # এটি মূলত ইনলাইন বাটন ক্লিক ধরছিল, কিন্তু আমরা এখন মেসেজ হ্যান্ডলার ব্যবহার করছি।
+    # তবে যেহেতু এটি আপনার কোডে ছিল, এটি একটি ফলব্যাক হিসেবে থাকুক।
+    await callback_query.answer("টাস্ক শুরু করতে 'কাজ শুরু করুন' ইনলাইন বাটন টিপুন।")
     
 
-# --- ক্যোয়ারি হ্যান্ডলার: Main Menu বাটন ---
+# --- ক্যোয়ারি হ্যান্ডলার: Main Menu বাটন --- (আপনার কোড অক্ষত)
 @app.on_callback_query(filters.regex("^main_menu"))
-async def back_to_main_menu(client, callback_query):
-    # ইনলাইন কীবোর্ড মুছে দিয়ে রিপ্লাই কীবোর্ড দেখাবে
+async def back_to_main_menu_callback(client, callback_query):
     await callback_query.edit_message_text(
         "👋 আপনি মূল মেনুতে ফিরে এসেছেন।",
         reply_markup=main_menu_keyboard
@@ -341,15 +340,10 @@ async def back_to_main_menu(client, callback_query):
     await callback_query.answer("মূল মেনুতে ফিরে গেছেন।")
 
 
-# --- চূড়ান্ত ফিক্স: নন-কমান্ড মেসেজ হ্যান্ডলার (উইথড্র ফ্লো এবং ফরওয়ার্ড লজিক) ---
+# --- চূড়ান্ত ফিক্স: নন-কমান্ড মেসেজ হ্যান্ডলার (আপনার কোড অক্ষত) ---
 @app.on_message(filters.private & filters.text & ~filters.regex("^Withdraw$")) 
 async def process_text_messages(client, message):
     
-    # 1. উইথড্র প্রসেস চলছে কিনা, তা পরীক্ষা করুন (চললে, withdraw_handlers.py হ্যান্ডেল করবে)
-    # যেহেতু withdraw_handlers.py তে group=-1 প্রাইওরিটি থাকবে, তাই এটি আগে চেক করবে
-    # যদি এটি এখানে পৌঁছায়, তাহলে উইথড্র হ্যান্ডলার মেসেজটি ধরেনি।
-    
-    # 2. মেনু বাটনগুলোর টেক্সট থাকলে এড়িয়ে যান (এগুলো অন্য হ্যান্ডলার ধরবে)
     main_menu_texts = ["💰 Daily Bonus", "🔗 Refer & Earn", "👤 My Account", "🧾 History", "👑 Status (Admin)", "BKASH", "NAGAD", "CANCEL"] 
     if message.text in main_menu_texts:
         return
@@ -358,14 +352,12 @@ async def process_text_messages(client, message):
     
     if is_user_blocked(user_id): return
     
-    # অ্যাডমিনের কাছে মেসেজ ফরওয়ার্ড করা (যদি উপরের কোনো শর্তে না পড়ে)
     await client.forward_messages(
         chat_id=OWNER_ID,
         from_chat_id=message.chat.id,
         message_ids=message.id
     )
     
-    # ইউজারকে নিশ্চিতকরণ মেসেজ দেওয়া
     await message.reply_text(
         "✅ আপনার মেসেজটি এডমিনের কাছে পাঠানো হয়েছে। খুব শীঘ্রই আপনাকে রিপ্লাই দেওয়া হবে।"
     )
@@ -376,7 +368,7 @@ async def process_text_messages(client, message):
 # **********************************************
 
 # 1. হ্যান্ডলার মডিউলগুলো চালু করা
-# group=-1 মানে সর্বোচ্চ অগ্রাধিকার, যাতে উইথড্র প্রসেস টেক্সট মেসেজগুলো আগে ধরতে পারে
+# group=-1 মানে সর্বোচ্চ অগ্রাধিকার
 withdraw_mod.setup_withdraw_handlers(app, USER_STATE, group=-1) 
 setup_task_handlers(app) # Task হ্যান্ডলার কল
 
