@@ -10,38 +10,41 @@ from pyrogram.types import (
 )
 
 # **********************************************
-# --- মডিউল ইম্পোর্ট এবং ফিউচার-প্রুফিং ---
+# --- মডিউল ইম্পোর্ট (ধরে নেওয়া হলো সব ফাইল তৈরি আছে) ---
 # **********************************************
-# এই দুটি ফাইল (admin.py, withdraw.py) অবশ্যই তৈরি থাকতে হবে
 from withdraw import setup_withdraw_handlers, USER_STATE
 from admin import setup_admin_handlers, is_user_blocked
 
-# --- Task মডিউলগুলো (task_1.py থেকে task_10.py) লোড করার সুরক্ষা লজিক ---
-task_modules = {}
-def load_task_modules():
-    global task_modules
-    for i in range(1, 11):
-        module_name = f"task_{i}"
-        try:
-            # ডাইনামিক্যালি মডিউল ইম্পোর্ট করার চেষ্টা
-            # task_1 থেকে task_10 পর্যন্ত ফাইল না থাকলে বট ক্র্যাশ করবে না।
-            task_module = __import__(module_name)
-            task_modules[f"task_{i}_module"] = task_module
-            print(f"✅ Loaded {module_name}.py successfully.")
-        except ModuleNotFoundError:
-            # ফাইল না থাকলে সতর্কতা দেখিয়ে এড়িয়ে যাবে
-            pass
-    
-# টাস্ক হ্যান্ডলার সেটআপ ফাংশন (বর্তমানে খালি)
+# Task মডিউলগুলো (এখন সরাসরি ইম্পোর্ট করা হয়েছে)
+from task_1 import setup_task_1_handler
+from task_2 import setup_task_2_handler
+from task_3 import setup_task_3_handler
+from task_4 import setup_task_4_handler
+from task_5 import setup_task_5_handler
+from task_6 import setup_task_6_handler
+from task_7 import setup_task_7_handler
+from task_8 import setup_task_8_handler
+from task_9 import setup_task_9_handler
+from task_10 import setup_task_10_handler
+
+# --- টাস্ক হ্যান্ডলার সেটআপ ফাংশন ---
 def setup_task_handlers(app: Client):
-    # ভবিষ্যতে Task মডিউলগুলোর ফাংশন এখানে কল হবে
-    pass 
+    # প্রতিটি Task মডিউলের সেটআপ ফাংশন এখানে কল করা হবে
+    setup_task_1_handler(app)
+    setup_task_2_handler(app)
+    setup_task_3_handler(app)
+    setup_task_4_handler(app)
+    setup_task_5_handler(app)
+    setup_task_6_handler(app)
+    setup_task_7_handler(app)
+    setup_task_8_handler(app)
+    setup_task_9_handler(app)
+    setup_task_10_handler(app)
 
 
 # **********************************************
 # **** ক্লাউড হোস্টিং-এর জন্য এনভায়রনমেন্ট ভেরিয়েবল ****
 # **********************************************
-# Railway-এ এই ভ্যালুগুলো দেওয়া আছে, তাই এখানে os.environ.get() ব্যবহার করা হয়েছে
 API_ID = os.environ.get("API_ID")
 API_HASH = os.environ.get("API_HASH")
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -54,10 +57,10 @@ ADMIN_CONTACT_USERNAME = "rdsratul81"
 # **********************************************
 # **** বটের ব্যবসায়িক লজিক ভেরিয়েবল ****
 # **********************************************
-REFER_BONUS = 30.00          # প্রতি রেফারে 30 টাকা
-MIN_WITHDRAW = 1500.00       # সর্বনিম্ন 1500 টাকা হলে উইথড্র করা যাবে
-WITHDRAW_FEE_PERCENT = 10.0  # 10% উইথড্র ফি
-REQUIRED_REFERRALS = 20      # উইথড্র করার জন্য ২০ টি রেফার
+REFER_BONUS = 30.00          
+MIN_WITHDRAW = 1500.00       
+WITHDRAW_FEE_PERCENT = 10.0  
+REQUIRED_REFERRALS = 20      
 # **********************************************
 
 
@@ -148,7 +151,6 @@ def add_user(user_id, referred_by=None):
         cursor.execute("INSERT INTO users (user_id, referred_by) VALUES (?, ?)", (user_id, referred_by))
         conn.commit()
         if referred_by:
-            # রেফারেল বোনাস যোগ করা
             cursor.execute("UPDATE users SET referral_balance = referral_balance + ?, referral_count = referral_count + 1 WHERE user_id = ?", (REFER_BONUS, referred_by))
             conn.commit()
             return True
@@ -166,11 +168,9 @@ async def start_command(client, message):
 
     referred_by = None
     
-    # রেফারেল লিংক থেকে আসা ইউজার শনাক্ত করা
     if len(message.command) > 1:
         try:
             referred_by = int(message.command[1])
-            # নিশ্চিত করুন রেফারেল আইডিটি নিজের না এবং ডাটাবেসে আছে
             cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (referred_by,))
             if referred_by == user_id or cursor.fetchone() is None:
                  referred_by = None
@@ -183,7 +183,6 @@ async def start_command(client, message):
         except ValueError:
             referred_by = None
             
-    # ইউজারকে Database এ যোগ করা
     if add_user(user_id, referred_by):
         text = "👋 স্বাগতম! আপনি আপনার পছন্দের টাস্কগুলো করে আয় করা শুরু করতে পারেন।"
     else:
@@ -195,12 +194,11 @@ async def start_command(client, message):
     )
 
 
-# --- হ্যান্ডলার: Daily Bonus (ইমোজি সহ) ---
+# --- হ্যান্ডলার: Daily Bonus ---
 @app.on_message(filters.regex("💰 Daily Bonus"))
 async def daily_bonus_handler(client, message):
     if is_user_blocked(message.from_user.id): return
     
-    # ইউজারকে টাস্ক মেনু দেখান
     await message.reply_text(
         "✅ Task complete করতে নিচের বাটনগুলো ব্যবহার করুন.\n"
         "✅ নিয়ম মেনে কাজ করবেন ইনকাম নিশ্চিত🚀",
@@ -208,27 +206,22 @@ async def daily_bonus_handler(client, message):
     )
 
 
-# --- হ্যান্ডলার: Refer & Earn (ইমোজি সহ) ---
+# --- হ্যান্ডলার: Refer & Earn ---
 @app.on_message(filters.regex("🔗 Refer & Earn"))
 async def refer_command(client, message):
     if is_user_blocked(message.from_user.id): return
 
     user_id = message.from_user.id
-    # ক্লায়েন্টের ইউজারনেম নিশ্চিত করুন
     bot_username = client.me.username if client.me.username else "YourBotUsername"
     referral_link = f"https://t.me/{bot_username}?start={user_id}"
     
     cursor.execute("SELECT referral_count FROM users WHERE user_id = ?", (user_id,))
     data = cursor.fetchone()
-    if data:
-        ref_count = data[0]
-    else:
-        ref_count = 0
+    ref_count = data[0] if data else 0
     
     text = (
         "🎉 **রেফার করে আয় করুন!**\n"
         "-\n"
-        f"আপনার বন্ধুকে রেফার করুন এবং প্রতি রেফারে একটি নিশ্চিত বোনাস পান।\n\n"
         f"💸 REFER BOUNS: **{REFER_BONUS:.2f} TK**\n"
         f"🔗 মোট রেফারেল: **{ref_count} জন**\n"
         "-----------------------\n"
@@ -239,7 +232,7 @@ async def refer_command(client, message):
     await message.reply_text(text)
 
 
-# --- হ্যান্ডলার: My Account (ইমোজি সহ) ---
+# --- হ্যান্ডলার: My Account ---
 @app.on_message(filters.regex("👤 My Account"))
 async def account_command(client, message):
     if is_user_blocked(message.from_user.id): return
@@ -247,28 +240,27 @@ async def account_command(client, message):
     user_id = message.from_user.id
     cursor.execute("SELECT task_balance, referral_balance, referral_count FROM users WHERE user_id = ?", (user_id,))
     data = cursor.fetchone()
+    
     if data:
         task_balance, referral_balance, ref_count = data
-    else:
-        task_balance, referral_balance, ref_count = 0.00, 0.00, 0
+        total_balance = task_balance + referral_balance
         
-    total_balance = task_balance + referral_balance
-    
-    text = (
-        "💼 **আপনার অ্যাকাউন্ট স্ট্যাটাস**\n"
-        "-\n"
-        f"🏅 Task ব্যালেন্স: **{task_balance:.2f} ৳**\n"
-        f"💸 রেফার ব্যালেন্স: **{referral_balance:.2f} ৳**\n"
-        f"💰 বর্তমান ব্যালেন্স: **{total_balance:.2f} ৳**\n"
-        f"🔗 মোট রেফারেল: **{ref_count} জন**\n\n"
-        f"⚠️ **উইথড্র শর্ত**: **{MIN_WITHDRAW:.2f} ৳** এবং **{REQUIRED_REFERRALS} জন রেফার**।\n\n"
-        "✅ কমিশন পেতে আরও বেশি রেফার করুন!\n"
-        "✅ নিয়মিত সবগুলো টাস্ক কমপ্লিট করুন!"
-    )
+        text = (
+            "💼 **আপনার অ্যাকাউন্ট স্ট্যাটাস**\n"
+            "-\n"
+            f"🏅 Task ব্যালেন্স: **{task_balance:.2f} ৳**\n"
+            f"💸 রেফার ব্যালেন্স: **{referral_balance:.2f} ৳**\n"
+            f"💰 বর্তমান ব্যালেন্স: **{total_balance:.2f} ৳**\n"
+            f"🔗 মোট রেফারেল: **{ref_count} জন**\n\n"
+            f"⚠️ **উইথড্র শর্ত**: **{MIN_WITHDRAW:.2f} ৳** এবং **{REQUIRED_REFERRALS} জন রেফার**।"
+        )
+    else:
+        text = "❌ অ্যাকাউন্ট তথ্য পাওয়া যায়নি। /start কমান্ড দিন।"
+
     await message.reply_text(text)
 
 
-# --- হ্যান্ডলার: History (ইমোজি সহ) ---
+# --- হ্যান্ডলার: History ---
 @app.on_message(filters.regex("🧾 History"))
 async def history_command(client, message):
     if is_user_blocked(message.from_user.id): return
@@ -286,7 +278,6 @@ async def history_command(client, message):
 
     history_text = "🧾 **আপনার উইথড্র হিস্টরি**\n\n"
     for item in history:
-        # timestamp format: YYYY-MM-DD HH:MM:SS
         timestamp, amount, method, number, status = item
         status_emoji = "✅ Approved" if status == "Approved" else ("❌ Rejected" if status == "Rejected" else "⏳ Pending")
         
@@ -302,7 +293,7 @@ async def history_command(client, message):
     await message.reply_text(history_text)
 
 
-# --- হ্যান্ডলার: Status (Admin) (ইমোজি সহ) ---
+# --- হ্যান্ডলার: Status (Admin) ---
 @app.on_message(filters.regex("👑 Status \\(Admin\\)"))
 async def admin_status_command(client, message):
     if is_user_blocked(message.from_user.id): return
@@ -316,15 +307,19 @@ async def admin_status_command(client, message):
 
 
 # --- ক্যোয়ারি হ্যান্ডলার: টাস্ক বাটনগুলো ---
+# Task logic এখন task_X.py ফাইলগুলোতে থাকবে
 @app.on_callback_query(filters.regex("^task_"))
 async def task_callback_handler(client, callback_query):
-    # ভবিষ্যতে task_X.py ফাইলগুলোতে থাকা হ্যান্ডলার ফাংশনগুলো এখানে কল হবে
-    await callback_query.answer("আপাতত এই টাস্কের কোড সেটআপ করা হয়নি।")
+    # এই হ্যান্ডলারটি টাস্ক-এর callback_data অনুযায়ী task_X.py এর লজিক কল করবে
+    task_id = callback_query.data.split('_')[1] # যেমন: task_1_10 থেকে 1 নেবে
+    
+    # আপাতত খালি লজিক (আপনার task_X.py তৈরি না হওয়া পর্যন্ত)
+    await callback_query.answer(f"Task {task_id} এর লজিক এখনও Task মডিউলে সেট করা হয়নি।") 
+    
 
 # --- ক্যোয়ারি হ্যান্ডলার: Main Menu বাটন ---
 @app.on_callback_query(filters.regex("^main_menu"))
 async def back_to_main_menu(client, callback_query):
-    # যখন ইউজার Inline বাটন ব্যবহার করে Main Menu-তে ফিরতে চায়
     await callback_query.edit_message_text(
         "👋 আপনি মূল মেনুতে ফিরে এসেছেন। নিচে মূল মেনু দেওয়া হলো:",
         reply_markup=main_menu_keyboard
@@ -332,15 +327,15 @@ async def back_to_main_menu(client, callback_query):
     await callback_query.answer("মূল মেনুতে ফিরে গেছেন।")
 
 
-# --- নন-কমান্ড মেসেজ হ্যান্ডলার (এডমিনের কাছে ট্রান্সফার) ---
+# --- নন-কমান্ড মেসেজ হ্যান্ডলার (এডমিনের কাছে ট্রান্সফার/অন্যান্য) ---
 @app.on_message(filters.private & filters.text) 
-async def forward_to_admin(client, message):
+async def process_text_messages(client, message):
     
     # 1. উইথড্র প্রসেস চলছে কিনা, তা পরীক্ষা করুন (চললে, withdraw.py হ্যান্ডেল করবে)
     if USER_STATE.get(message.from_user.id):
         return
 
-    # 2. মেনু বাটনগুলোর টেক্সট থাকলে এড়িয়ে যান
+    # 2. মেনু বাটনগুলোর টেক্সট থাকলে এড়িয়ে যান (এগুলো অন্য হ্যান্ডলার ধরবে)
     main_menu_texts = ["💰 Daily Bonus", "🔗 Refer & Earn", "💳 Withdraw", "👤 My Account", "🧾 History", "👑 Status (Admin)", "BKASH", "NAGAD", "CANCEL"]
     if message.text in main_menu_texts:
         return
@@ -363,16 +358,13 @@ async def forward_to_admin(client, message):
     
 
 # **********************************************
-# --- মডিউল যুক্ত করা ও বট চালু করা ---
+# --- মডিউল হ্যান্ডলারগুলো চালু করা ও বট চালু করা ---
 # **********************************************
 
-# 1. টাস্ক মডিউল লোড করার চেষ্টা করা 
-load_task_modules()
-
-# 2. হ্যান্ডলার মডিউলগুলো চালু করা
+# 1. হ্যান্ডলার মডিউলগুলো চালু করা
 setup_withdraw_handlers(app, USER_STATE)
 setup_admin_handlers(app)
-setup_task_handlers(app) # Task মডিউলের জন্য প্রস্তুত
+setup_task_handlers(app) # Task হ্যান্ডলার কল
 
 # --- বট চালানো ---
 print("Telegram Earning Bot is starting...")
