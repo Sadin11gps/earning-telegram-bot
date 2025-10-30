@@ -12,10 +12,11 @@ from pyrogram.types import (
 # **********************************************
 # --- মডিউল ইম্পোর্ট (ধরে নেওয়া হলো সব ফাইল তৈরি আছে) ---
 # **********************************************
+# USER_STATE এখানে ডিফাইন করা আছে, কিন্তু এটি withdraw মডিউলে গ্লোবালি হ্যান্ডেল হচ্ছে
 from withdraw import setup_withdraw_handlers, USER_STATE
 from admin import setup_admin_handlers, is_user_blocked
 
-# Task মডিউলগুলো (এখন সরাসরি ইম্পোর্ট করা হয়েছে)
+# Task মডিউলগুলো
 from task_1 import setup_task_1_handler
 from task_2 import setup_task_2_handler
 from task_3 import setup_task_3_handler
@@ -50,7 +51,7 @@ API_HASH = os.environ.get("API_HASH")
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
 # **** অ্যাডমিন আইডি (আপনার Telegram ID) ****
-OWNER_ID = 7702378694  
+OWNER_ID = 7702378694  # আপনার অ্যাডমিন আইডি
 ADMIN_CONTACT_USERNAME = "rdsratul81" 
 # **********************************************
 
@@ -97,10 +98,11 @@ conn.commit()
 
 # --- কীবোর্ড সেটআপ ---
 
-# মূল মেনুর বাটন (Reply Keyboard) - **ইমোজি সহ**
+# মূল মেনুর বাটন (Reply Keyboard) - WITHDRAW ফিক্সড
 main_menu_keyboard = ReplyKeyboardMarkup(
     [
         [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
+        # ফিক্সড: ইমোজি ছাড়া শুধু 'Withdraw' ব্যবহার করা হয়েছে
         [KeyboardButton("Withdraw"), KeyboardButton("👤 My Account")],
         [KeyboardButton("🧾 History"), KeyboardButton("👑 Status (Admin)")]
     ],
@@ -162,6 +164,7 @@ def add_user(user_id, referred_by=None):
 async def start_command(client, message):
     user_id = message.from_user.id
 
+    # ... [আপনার আগের /start লজিক] ...
     if is_user_blocked(user_id):
         await message.reply_text("❌ দুঃখিত! আপনাকে বটটি ব্যবহার থেকে ব্লক করা হয়েছে।")
         return
@@ -210,7 +213,7 @@ async def daily_bonus_handler(client, message):
 @app.on_message(filters.regex("🔗 Refer & Earn"))
 async def refer_command(client, message):
     if is_user_blocked(message.from_user.id): return
-
+    # ... [আপনার আগের Refer & Earn লজিক] ...
     user_id = message.from_user.id
     bot_username = client.me.username if client.me.username else "YourBotUsername"
     referral_link = f"https://t.me/{bot_username}?start={user_id}"
@@ -236,7 +239,7 @@ async def refer_command(client, message):
 @app.on_message(filters.regex("👤 My Account"))
 async def account_command(client, message):
     if is_user_blocked(message.from_user.id): return
-
+    # ... [আপনার আগের My Account লজিক] ...
     user_id = message.from_user.id
     cursor.execute("SELECT task_balance, referral_balance, referral_count FROM users WHERE user_id = ?", (user_id,))
     data = cursor.fetchone()
@@ -264,7 +267,7 @@ async def account_command(client, message):
 @app.on_message(filters.regex("🧾 History"))
 async def history_command(client, message):
     if is_user_blocked(message.from_user.id): return
-
+    # ... [আপনার আগের History লজিক] ...
     user_id = message.from_user.id
     cursor.execute(
         "SELECT timestamp, amount, method, account_number, status FROM withdraw_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 10", 
@@ -297,7 +300,7 @@ async def history_command(client, message):
 @app.on_message(filters.regex("👑 Status \\(Admin\\)"))
 async def admin_status_command(client, message):
     if is_user_blocked(message.from_user.id): return
-
+    # ... [আপনার আগের Status লজিক] ...
     contact_button = InlineKeyboardMarkup(
         [[InlineKeyboardButton("💬 CONTACT", url=f"https://t.me/{ADMIN_CONTACT_USERNAME}")]]
     )
@@ -307,11 +310,10 @@ async def admin_status_command(client, message):
 
 
 # --- ক্যোয়ারি হ্যান্ডলার: টাস্ক বাটনগুলো ---
-# Task logic এখন task_X.py ফাইলগুলোতে থাকবে
 @app.on_callback_query(filters.regex("^task_"))
 async def task_callback_handler(client, callback_query):
-    # এই হ্যান্ডলারটি টাস্ক-এর callback_data অনুযায়ী task_X.py এর লজিক কল করবে
-    task_id = callback_query.data.split('_')[1] # যেমন: task_1_10 থেকে 1 নেবে
+    # Task logic এখন task_X.py ফাইলগুলোতে থাকবে
+    task_id = callback_query.data.split('_')[1] 
     
     # আপাতত খালি লজিক (আপনার task_X.py তৈরি না হওয়া পর্যন্ত)
     await callback_query.answer(f"Task {task_id} এর লজিক এখনও Task মডিউলে সেট করা হয়নি।") 
@@ -327,16 +329,22 @@ async def back_to_main_menu(client, callback_query):
     await callback_query.answer("মূল মেনুতে ফিরে গেছেন।")
 
 
-# --- নন-কমান্ড মেসেজ হ্যান্ডলার (এডমিনের কাছে ট্রান্সফার/অন্যান্য) ---
+# --- চূড়ান্ত ফিক্স: নন-কমান্ড মেসেজ হ্যান্ডলার (এডমিনের কাছে ট্রান্সফার/অন্যান্য) ---
 @app.on_message(filters.private & filters.text) 
 async def process_text_messages(client, message):
     
     # 1. উইথড্র প্রসেস চলছে কিনা, তা পরীক্ষা করুন (চললে, withdraw.py হ্যান্ডেল করবে)
     if USER_STATE.get(message.from_user.id):
         return
-
+    
+    # *** 💡 CRITICAL FIX: যদি টেক্সটটি 'Withdraw' হয়, তবে পুরো হ্যান্ডলারটি থেকে বের হয়ে যাও ***
+    # কারণ আমরা এখন বাটন টেক্সট হিসেবে "Withdraw" ব্যবহার করছি।
+    if message.text.strip() == "Withdraw":
+        return
+        
     # 2. মেনু বাটনগুলোর টেক্সট থাকলে এড়িয়ে যান (এগুলো অন্য হ্যান্ডলার ধরবে)
-    main_menu_texts = ["💰 Daily Bonus", "🔗 Refer & Earn", "👤 My Account", "🧾 History", "👑 Status (Admin)", "BKASH", "NAGAD", "CANCEL"]
+    # Withdraw বাটন টেক্সট এখান থেকে সরানো হয়েছে।
+    main_menu_texts = ["💰 Daily Bonus", "🔗 Refer & Earn", "👤 My Account", "🧾 History", "👑 Status (Admin)", "BKASH", "NAGAD", "CANCEL"] 
     if message.text in main_menu_texts:
         return
         
@@ -344,7 +352,7 @@ async def process_text_messages(client, message):
     
     if is_user_blocked(user_id): return
     
-    # অ্যাডমিনের কাছে মেসেজ ফরওয়ার্ড করা
+    # অ্যাডমিনের কাছে মেসেজ ফরওয়ার্ড করা (যদি উপরের কোনো শর্তে না পড়ে)
     await client.forward_messages(
         chat_id=OWNER_ID,
         from_chat_id=message.chat.id,
