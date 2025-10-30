@@ -103,7 +103,8 @@ app = Client(
 
 # --- ফাংশন: ইউজার Database এ যোগ করা ---
 def add_user(user_id, referred_by=None):
-    cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
+  global conn, cursor 
+ cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
     if cursor.fetchone() is None:
         cursor.execute("INSERT INTO users (user_id, referred_by) VALUES (?, ?)", (user_id, referred_by))
         conn.commit()
@@ -115,6 +116,7 @@ def add_user(user_id, referred_by=None):
 
 # --- ফিক্সড: ব্লকড ইউজার চেক ---
 def is_user_blocked(user_id):
+    global conn, cursor  
     cursor.execute("SELECT is_blocked FROM users WHERE user_id = ?", (user_id,))
     result = cursor.fetchone()
     return result and result[0] == 1
