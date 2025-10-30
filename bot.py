@@ -101,7 +101,7 @@ conn.commit()
 main_menu_keyboard = ReplyKeyboardMarkup(
     [
         [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
-        [KeyboardButton("💳 Withdraw"), KeyboardButton("👤 My Account")],
+        [KeyboardButton("Withdraw"), KeyboardButton("👤 My Account")],
         [KeyboardButton("🧾 History"), KeyboardButton("👑 Status (Admin)")]
     ],
     resize_keyboard=True
@@ -336,7 +336,7 @@ async def process_text_messages(client, message):
         return
 
     # 2. মেনু বাটনগুলোর টেক্সট থাকলে এড়িয়ে যান (এগুলো অন্য হ্যান্ডলার ধরবে)
-    main_menu_texts = ["💰 Daily Bonus", "🔗 Refer & Earn", "💳 Withdraw", "👤 My Account", "🧾 History", "👑 Status (Admin)", "BKASH", "NAGAD", "CANCEL"]
+    main_menu_texts = ["💰 Daily Bonus", "🔗 Refer & Earn", "👤 My Account", "🧾 History", "👑 Status (Admin)", "BKASH", "NAGAD", "CANCEL"]
     if message.text in main_menu_texts:
         return
         

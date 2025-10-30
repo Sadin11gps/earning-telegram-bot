@@ -28,7 +28,7 @@ withdraw_method_keyboard = ReplyKeyboardMarkup(
 main_menu_keyboard = ReplyKeyboardMarkup(
     [
         [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
-        [KeyboardButton("💳 Withdraw"), KeyboardButton("👤 My Account")],
+        [KeyboardButton("Withdraw"), KeyboardButton("👤 My Account")],
         [KeyboardButton("🧾 History"), KeyboardButton("👑 Status (Admin)")]
     ],
     resize_keyboard=True
@@ -49,8 +49,8 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
     @app.on_message(filters.regex("Withdraw") & filters.private) 
     async def withdraw_start(client, message):
         
-        # নিশ্চিত করুন যে মেসেজটি শুধুমাত্র "💳 Withdraw" বাটন থেকেই এসেছে
-        if message.text.strip() != "💳 Withdraw":
+        # নিশ্চিত করুন যে মেসেজটি শুধুমাত্র "Withdraw" বাটন থেকেই এসেছে
+        if message.text.strip() != "Withdraw":
             return
             
         user_id = message.from_user.id
