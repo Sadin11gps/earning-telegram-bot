@@ -13,7 +13,7 @@ from pyrogram.types import (
 # --- মডিউল ইম্পোর্ট (ধরে নেওয়া হলো সব ফাইল তৈরি আছে) ---
 # **********************************************
 # USER_STATE এখানে ডিফাইন করা আছে, কিন্তু এটি withdraw মডিউলে গ্লোবালি হ্যান্ডেল হচ্ছে
-from withdraw import setup_withdraw_handlers, USER_STATE, group=-1)
+from withdraw import setup_withdraw_handlers
 from admin import setup_admin_handlers, is_user_blocked
 
 # Task মডিউলগুলো
@@ -369,7 +369,7 @@ async def process_text_messages(client, message):
 # **********************************************
 
 # 1. হ্যান্ডলার মডিউলগুলো চালু করা
-setup_withdraw_handlers(app, USER_STATE)
+setup_withdraw_handlers(app, USER_STATE, group=-1) 
 setup_admin_handlers(app)
 setup_task_handlers(app) # Task হ্যান্ডলার কল
 
