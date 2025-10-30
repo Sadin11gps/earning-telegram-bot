@@ -1,214 +1,225 @@
-from pyrogram import Client, filters
-from pyrogram.types import (
-    InlineKeyboardMarkup, 
-    InlineKeyboardButton, 
-    ReplyKeyboardMarkup, 
-    KeyboardButton
-)
 import sqlite3
-import os
+from pyrogram import Client, filters
+from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton
 
-# গ্লোবাল ভেরিয়েবল এবং ফাংশন ইমপোর্ট করার জন্য প্লেসহোল্ডার
-MIN_WITHDRAW = 1500.00
-WITHDRAW_FEE_PERCENT = 10.0
-OWNER_ID = 7702378694
-
-# উইথড্র করার জন্য প্রয়োজনীয় রেফারেল সংখ্যা
-REQUIRED_REFERRALS = 20
-
-# ডেটাবেস সংযোগ
+# --- Database সেটআপ (bot.py-এর সাথে সামঞ্জস্যপূর্ণ) ---
 conn = sqlite3.connect('user_data.db', check_same_thread=False)
 cursor = conn.cursor()
 
-# ইউজার স্টেট ট্র্যাক করার জন্য ডিকশনারি
-USER_STATE = {}
+# --- গ্লোবাল স্টেট ---
+# USER_STATE কে bot.py থেকে শেয়ার করা হয়
+USER_STATE = {} 
 
-# --- ফাংশন: ইউজার ব্যালেন্স এবং রেফারেল সংখ্যা চেক করা ---
-def get_user_data(user_id):
-    cursor.execute("SELECT task_balance, referral_balance, referral_count FROM users WHERE user_id = ?", (user_id,))
-    data = cursor.fetchone()
-    if data:
-        return data[0] + data[1], data[2] # (মোট ব্যালেন্স, রেফারেল সংখ্যা)
-    return 0.00, 0
+# --- ব্যবসায়িক লজিক ভেরিয়েবল (bot.py থেকে ডুপ্লিকেট করা) ---
+MIN_WITHDRAW = 1500.00       
+REQUIRED_REFERRALS = 20      
+WITHDRAW_FEE_PERCENT = 10.0  
+OWNER_ID = 7702378694 # Admin ID 
 
-# --- কীবোর্ড: উইথড্র মেথড বাটন ---
-withdraw_method_keyboard = InlineKeyboardMarkup(
+
+# --- কীবোর্ড সেটআপ ---
+withdraw_method_keyboard = ReplyKeyboardMarkup(
     [
-        [
-            InlineKeyboardButton("🏦 BKASH", callback_data="w_method_BKASH"),
-            InlineKeyboardButton("🏦 NAGAD", callback_data="w_method_NAGAD")
-        ]
-    ]
+        [KeyboardButton("BKASH"), KeyboardButton("NAGAD")],
+        [KeyboardButton("CANCEL")]
+    ],
+    resize_keyboard=True
 )
 
-# --- হ্যান্ডলার: 💳 Withdraw (স্টেপ ১: উইথড্র শুরু করা) ---
-def setup_withdraw_handlers(app, USER_STATE_REF):
-    global USER_STATE
-    USER_STATE = USER_STATE_REF
+main_menu_keyboard = ReplyKeyboardMarkup(
+    [
+        [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
+        [KeyboardButton("💳 Withdraw"), KeyboardButton("👤 My Account")],
+        [KeyboardButton("🧾 History"), KeyboardButton("👑 Status (Admin)")]
+    ],
+    resize_keyboard=True
+)
 
-    @app.on_message(filters.regex("Withdraw"))
+
+# --- হ্যান্ডলার সেটআপ ফাংশন (bot.py এই ফাংশনটি কল করে) ---
+def setup_withdraw_handlers(app: Client, shared_user_state):
+    global USER_STATE
+    USER_STATE = shared_user_state
+    
+    
+    # -----------------------------------------------------
+    # হ্যান্ডলার ১: Withdraw কমান্ড শুরু (ইমোজি সহ)
+    # -----------------------------------------------------
+    # নিশ্চিত করুন: filters.regex("💳 Withdraw") ইমোজি সহ আছে
+    @app.on_message(filters.regex("^💳 Withdraw$") & filters.private) 
     async def withdraw_start(client, message):
         user_id = message.from_user.id
         
-        total_balance, referral_count = get_user_data(user_id)
+        # 1. ব্যালেন্স এবং রেফার চেক
+        cursor.execute("SELECT task_balance, referral_balance, referral_count FROM users WHERE user_id = ?", (user_id,))
+        data = cursor.fetchone()
         
-        # 1. সর্বনিম্ন লিমিট এবং রেফারেল শর্ত দেখান
-        text = (
-            "💬 **সঠিকভাবে Withdraw করার জন্য আপনার method + account number ভালোভাবে চেক করে দিন**\n\n"
-            f"🏦 MINIMUM WITHDRAW: **{MIN_WITHDRAW:.2f} TK**\n"
-            f"🖌️ FEE : **{WITHDRAW_FEE_PERCENT:.0f}%**\n\n"
-            f"📜 Tip: উইথড্র করার জন্য **{REQUIRED_REFERRALS} টি রেফার** প্রয়োজন। (বর্তমানে আপনার আছে: **{referral_count} জন**)\n\n"
-            "✳️ **আপনি কিসের মাধ্যমে Withdraw করতে চান?** ✳️"
-        )
+        if data is None:
+            await message.reply_text("❌ আপনার অ্যাকাউন্ট পাওয়া যায়নি। /start কমান্ড দিয়ে শুরু করুন।", reply_markup=main_menu_keyboard)
+            return
+
+        task_balance, referral_balance, ref_count = data
+        total_balance = task_balance + referral_balance
         
-        # প্রাথমিক চেক: ব্যালেন্স বা রেফারেল শর্ত পূরণ না হলে শুরু করা হবে না
+        error_message = ""
         if total_balance < MIN_WITHDRAW:
-            await message.reply_text(
-                f"❌ দুঃখিত! উইথড্র করার জন্য আপনার অ্যাকাউন্টে সর্বনিম্ন **{MIN_WITHDRAW:.2f} টাকা** ব্যালেন্স থাকা দরকার।\n"
-                f"বর্তমানে আছে: **{total_balance:.2f} টাকা**"
-            )
-            return
+            error_message += f"❌ দুঃখিত! উইথড্র করার জন্য আপনার অ্যাকাউন্টে সর্বনিম্ন **{MIN_WITHDRAW:.2f} টাকা** ব্যালেন্স থাকা দরকার।\n"
         
-        if referral_count < REQUIRED_REFERRALS:
-            await message.reply_text(
-                f"❌ দুঃখিত! উইথড্র করার জন্য আপনার অ্যাকাউন্টে **{REQUIRED_REFERRALS} টি রেফার** থাকা দরকার।\n"
-                f"বর্তমানে আপনার আছে: **{referral_count} জন**। আরও রেফার করুন।"
-            )
-            return
-
-        # 2. শর্ত পূরণ হলে, প্রসেস শুরু করা
-        USER_STATE[user_id] = {'step': 'started', 'amount': 0, 'method': '', 'number': ''}
-        await message.reply_text(text, reply_markup=withdraw_method_keyboard)
-
-    # --- হ্যান্ডলার: ক্যোয়ারি হ্যান্ডলার (স্টেপ ২: মেথড নির্বাচন) ---
-    @app.on_callback_query(filters.regex("^w_method_"))
-    async def withdraw_method_select(client, callback_query):
-        user_id = callback_query.from_user.id
-        method = callback_query.data.split('_')[-1]
+        if ref_count < REQUIRED_REFERRALS:
+            error_message += f"❌ দুঃখিত! উইথড্র করার জন্য আপনার অ্যাকাউন্টে **{REQUIRED_REFERRALS} টি রেফার** থাকা দরকার।\n"
         
-        if USER_STATE.get(user_id) and USER_STATE[user_id]['step'] == 'started':
-            USER_STATE[user_id]['method'] = method
-            USER_STATE[user_id]['step'] = 'awaiting_number'
-            
-            # 1. মেসেজ এডিট করা (বাটনগুলো চলে যাবে)
-            await callback_query.edit_message_text(
-                f"✅ আপনি **{method}** নির্বাচন করেছেন।\n"
-                f"🖌️ **আপনার {method} নাম্বারটি লিখুন। 👇**"
-            )
-            
-            await callback_query.answer("নম্বর লিখুন।")
+        if error_message:
+            # শর্ত পূরণ না হলে ভুল মেসেজ দেখিয়ে মূল মেনুতে ফিরিয়ে দিন
+            await message.reply_text(error_message, reply_markup=main_menu_keyboard)
             
         else:
-            await callback_query.answer("❌ আপনার উইথড্র প্রসেসটি বাতিল হয়ে গেছে। আবার চেষ্টা করুন।")
-            # নিরাপত্তা নিশ্চিত করতে স্টেট ক্লিয়ার
-            if user_id in USER_STATE: del USER_STATE[user_id]
-
-
-    # --- হ্যান্ডলার: উইথড্র নাম্বার এবং অ্যামাউন্ট নেওয়া (স্টেপ ৩ এবং ৪) ---
-    @app.on_message(filters.text & filters.private, group=1) # High Priority
-    async def withdraw_details_process(client, message):
-        user_id = message.from_user.id
-        user_input = message.text
-        
-        if user_id not in USER_STATE:
-            return False # অন্য হ্যান্ডলারে ছেড়ে দাও
-            
-        current_state = USER_STATE[user_id]
-        total_balance, referral_count = get_user_data(user_id)
-
-
-        if current_state['step'] == 'awaiting_number':
-            # স্টেপ ৩: নম্বর ইনপুট
-            account_number = user_input.strip()
-            
-            if not account_number.isdigit() or len(account_number) < 11:
-                await message.reply_text("❌ দয়া করে একটি বৈধ ১১-সংখ্যার মোবাইল নম্বর দিন।")
-                return True
-                
-            USER_STATE[user_id]['number'] = account_number
-            USER_STATE[user_id]['step'] = 'awaiting_amount'
-            
+            # 2. শর্ত পূরণ হলে উইথড্র প্রসেস শুরু
+            # প্রতিটি ইউজারের জন্য একটি স্টেট সেট করা
+            USER_STATE[user_id] = 'asking_withdraw_amount'
             await message.reply_text(
-                f"💰 আপনার ব্যালেন্স: **{total_balance:.2f}৳**\n"
-                f"✍️ **পরিমাণ লিখুন। 👇**"
+                f"✅ আপনি উইথড্র করার যোগ্য!\n"
+                f"💸 আপনার বর্তমান ব্যালেন্স: **{total_balance:.2f} টাকা**।\n\n"
+                f"⚠️ **উত্তোলন ফি: {WITHDRAW_FEE_PERCENT:.1f}%**\n"
+                f"আপনার উইথড্র করার পরিমাণ নিচে লিখুন। (সর্বনিম্ন {MIN_WITHDRAW:.2f} টাকা)",
+                reply_markup=ReplyKeyboardMarkup([
+                    [KeyboardButton("CANCEL")]
+                ], resize_keyboard=True)
             )
-            return True
-            
-        elif current_state['step'] == 'awaiting_amount':
-            # স্টেপ ৪: অ্যামাউন্ট ইনপুট ও ফাইনাল সাবমিট
-            
+
+    # -----------------------------------------------------
+    # হ্যান্ডলার ২: উইথড্র অ্যামাউন্ট ইনপুট
+    # -----------------------------------------------------
+    @app.on_message(filters.text & filters.private & ~filters.regex("^(BKASH|NAGAD|CANCEL|💰 Daily Bonus|🔗 Refer & Earn|💳 Withdraw|👤 My Account|🧾 History|👑 Status \(Admin\))$"))
+    async def process_withdraw_amount(client, message):
+        user_id = message.from_user.id
+        
+        # নিশ্চিত করুন যে ইউজার সঠিক স্টেটে আছে
+        if USER_STATE.get(user_id) == 'asking_withdraw_amount':
             try:
-                amount = float(user_input)
+                amount = float(message.text)
+                
+                # ব্যালেন্স পুনরায় চেক
+                cursor.execute("SELECT task_balance, referral_balance FROM users WHERE user_id = ?", (user_id,))
+                data = cursor.fetchone()
+                total_balance = data[0] + data[1]
+
+                if amount < MIN_WITHDRAW:
+                    await message.reply_text(f"❌ উইথড্র অ্যামাউন্ট সর্বনিম্ন **{MIN_WITHDRAW:.2f} টাকা** হতে হবে। আবার লিখুন।")
+                elif amount > total_balance:
+                    await message.reply_text(f"❌ আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই। আপনার বর্তমান ব্যালেন্স: **{total_balance:.2f} টাকা**।")
+                else:
+                    # পরিমাণ বৈধ, মেথড নির্বাচন করতে বলুন
+                    USER_STATE[user_id] = 'asking_withdraw_method'
+                    USER_STATE[f'{user_id}_withdraw_amount'] = amount 
+                    
+                    final_amount = amount - (amount * WITHDRAW_FEE_PERCENT / 100)
+                    
+                    await message.reply_text(
+                        f"💰 আপনি **{amount:.2f} টাকা** উইথড্র করতে চেয়েছেন।\n"
+                        f"ফি ({WITHDRAW_FEE_PERCENT:.1f}%): **{(amount * WITHDRAW_FEE_PERCENT / 100):.2f} টাকা**।\n"
+                        f"✅ আপনি পাবেন: **{final_amount:.2f} টাকা**।\n\n"
+                        "আপনি কোন মেথডে টাকা নিতে চান, তা নির্বাচন করুন:",
+                        reply_markup=withdraw_method_keyboard
+                    )
+
             except ValueError:
-                await message.reply_text("❌ দয়া করে শুধুমাত্র সঠিক সংখ্যায় টাকার পরিমাণ লিখুন।")
-                return True
-                
-            # 1. ব্যালেন্স কম আছে?
-            if amount < MIN_WITHDRAW:
-                await message.reply_text(f"⛔ আপনার উত্তোলন করা টাকার পরিমাণ সর্বনিম্ন সীমা **{MIN_WITHDRAW:.2f} টাকা** এর চেয়ে কম।")
-                return True
-                
-            if amount > total_balance:
-                await message.reply_text(f"⛔ **আপনার ব্যালেন্স কম আছে।** বর্তমান ব্যালেন্স: **{total_balance:.2f}৳**।")
-                return True
-            
-            # 2. রেফারেল শর্ত পূরণ না হলে?
-            if referral_count < REQUIRED_REFERRALS:
-                await message.reply_text(f"❌ দুঃখিত! উইথড্র করার জন্য আপনার অ্যাকাউন্টে **{REQUIRED_REFERRALS} টি রেফার** থাকা দরকার।\n"
-                                         f"📜 Tip: উইথড্র করার জন্য **{REQUIRED_REFERRALS} টি রেফার** প্রয়োজন।")
-                return True
+                await message.reply_text("❌ শুধু সংখ্যা লিখুন। সঠিক পরিমাণ আবার লিখুন।")
 
-            # --- ট্রানজেকশন প্রসেসিং (শর্ত পূরণ হয়েছে) ---
-            fee = (amount * WITHDRAW_FEE_PERCENT) / 100
-            net_amount = amount - fee
-            method = current_state['method']
-            account_number = current_state['number']
+    # -----------------------------------------------------
+    # হ্যান্ডলার ৩: মেথড ইনপুট
+    # -----------------------------------------------------
+    @app.on_message(filters.regex("^(BKASH|NAGAD)$") & filters.private)
+    async def process_withdraw_method(client, message):
+        user_id = message.from_user.id
+        
+        if USER_STATE.get(user_id) == 'asking_withdraw_method':
+            method = message.text
+            USER_STATE[user_id] = 'asking_account_number'
+            USER_STATE[f'{user_id}_withdraw_method'] = method 
+            await message.reply_text(
+                f"আপনি **{method}** নির্বাচন করেছেন।\n"
+                f"দয়া করে আপনার {method} **নাম্বারটি** লিখুন:"
+            )
+
+    # -----------------------------------------------------
+    # হ্যান্ডলার ৪: অ্যাকাউন্ট নাম্বার ইনপুট
+    # -----------------------------------------------------
+    # এই হ্যান্ডলারটি সমস্ত নন-কমান্ড টেক্সট ধরবে যখন ইউজার সঠিক স্টেটে থাকবে
+    @app.on_message(filters.text & filters.private & ~filters.regex("^(BKASH|NAGAD|CANCEL|💰 Daily Bonus|🔗 Refer & Earn|💳 Withdraw|👤 My Account|🧾 History|👑 Status \(Admin\))$"))
+    async def process_account_number(client, message):
+        user_id = message.from_user.id
+        
+        if USER_STATE.get(user_id) == 'asking_account_number':
+            account_number = message.text
             
-            # ব্যালেন্স থেকে টাকা কাটা (Task Balance এবং Referral Balance থেকে)
+            # ইউজার-নির্দিষ্ট কী থেকে ডেটা পুনরুদ্ধার
+            amount = USER_STATE.pop(f'{user_id}_withdraw_amount', 0)
+            method = USER_STATE.pop(f'{user_id}_withdraw_method', 'N/A')
+            USER_STATE.pop(user_id) # স্টেট রিসেট
+
+            if amount == 0:
+                 await message.reply_text("❌ উইথড্র প্রসেসটি পুনরায় শুরু করুন (ডেটা ত্রুটি)।", reply_markup=main_menu_keyboard)
+                 return
+
+            final_amount = amount - (amount * WITHDRAW_FEE_PERCENT / 100)
+            
+            # --- ব্যালেন্স কমানোর লজিক ---
             cursor.execute("SELECT task_balance, referral_balance FROM users WHERE user_id = ?", (user_id,))
-            task_bal, ref_bal = cursor.fetchone()
+            t_bal, r_bal = cursor.fetchone()
             
-            remaining_to_cut = amount
-            new_task_bal = task_bal
-            new_ref_bal = ref_bal
+            remaining_amount = amount
             
-            if task_bal >= remaining_to_cut:
-                new_task_bal = task_bal - remaining_to_cut
+            # প্রথমে টাস্ক ব্যালেন্স থেকে কাটুন
+            if t_bal >= remaining_amount:
+                t_bal -= remaining_amount
+                remaining_amount = 0
             else:
-                new_task_bal = 0
-                remaining_to_cut -= task_bal
-                new_ref_bal = ref_bal - remaining_to_cut
-
-            # Database এ আপডেট ও History যোগ
-            cursor.execute("UPDATE users SET task_balance = ?, referral_balance = ? WHERE user_id = ?", 
-                           (new_task_bal, new_ref_bal, user_id))
-            cursor.execute("INSERT INTO withdraw_history (user_id, amount, method, account_number) VALUES (?, ?, ?, ?)",
-                           (user_id, net_amount, method, account_number))
+                remaining_amount -= t_bal
+                t_bal = 0
+                r_bal -= remaining_amount # বাকিটা রেফারেল ব্যালেন্স থেকে কাটুন
+                
+            cursor.execute("UPDATE users SET task_balance = ?, referral_balance = ? WHERE user_id = ?", (t_bal, r_bal, user_id))
             conn.commit()
             
-            # ইউজারকে ফাইনাল নোটিফিকেশন
-            final_text = (
-                f"🔔 **Notifications**\n\n"
-                f"🔂 আপনার Withdraw **{net_amount:.2f} ৳** ({method}: {account_number}) পেন্ডিং আছে...\n"
-                f"🙏 দয়া করে অপেক্ষা করুন।\n"
-                f"🎟️ এডমিন চেক করার পর Approve করবেন\n"
-                f"💕 **ধন্যবাদ** 💕"
+            # 2. History তে যোগ করা
+            cursor.execute(
+                "INSERT INTO withdraw_history (user_id, amount, method, account_number, status) VALUES (?, ?, ?, ?, ?)",
+                (user_id, amount, method, account_number, 'Pending')
             )
-            await message.reply_text(final_text)
+            conn.commit()
             
-            # এডমিনকে নোটিফাই করা
-            admin_message = (
-                f"🔔 **নতুন উইথড্র রিকোয়েস্ট (Pending)**\n"
-                f"👤 ইউজার ID: `{user_id}`\n"
-                f"💰 রিকোয়েস্ট করা হয়েছে: **{amount:.2f} ৳** (নেট: {net_amount:.2f} ৳)\n"
+            # 3. ইউজারকে নিশ্চিত করা
+            await message.reply_text(
+                f"✅ আপনার উইথড্র রিকোয়েস্ট সফলভাবে সাবমিট করা হয়েছে!\n"
+                f"💰 উইথড্র অ্যামাউন্ট: {amount:.2f} টাকা\n"
                 f"🏦 মেথড: {method}\n"
-                f"🔢 নম্বর: {account_number}\n"
-                f"👉 অ্যাডমিন প্যানেল থেকে `/withdraws` কমান্ড দিয়ে অনুমোদন করুন।"
+                f"🔢 অ্যাকাউন্ট: {account_number}\n"
+                f"⏱️ আপনার পেমেন্ট শীঘ্রই প্রসেস করা হবে।",
+                reply_markup=main_menu_keyboard
             )
-            await client.send_message(OWNER_ID, admin_message)
             
-            # স্টেট ক্লিয়ার করা
-            del USER_STATE[user_id]
-            return True
+            # 4. অ্যাডমিনকে জানানো
+            await client.send_message(
+                OWNER_ID,
+                f"🔔 **নতুন উইথড্র রিকোয়েস্ট**\n"
+                f"🆔 User ID: `{user_id}`\n"
+                f"👤 User: @{message.from_user.username or 'N/A'}\n"
+                f"💰 Amount: {amount:.2f} টাকা\n"
+                f"💸 Net Receive: {final_amount:.2f} টাকা (ফি {WITHDRAW_FEE_PERCENT:.1f}%)\n"
+                f"🏦 Method: {method}\n"
+                f"🔢 Account: {account_number}"
+            )
             
-        return False
+    # -----------------------------------------------------
+    # হ্যান্ডলার ৫: CANCEL কমান্ড
+    # -----------------------------------------------------
+    @app.on_message(filters.regex("CANCEL") & filters.private)
+    async def withdraw_cancel(client, message):
+        user_id = message.from_user.id
+        
+        if user_id in USER_STATE:
+            # সমস্ত সংশ্লিষ্ট স্টেট পপ করা
+            USER_STATE.pop(user_id, None)
+            USER_STATE.pop(f'{user_id}_withdraw_amount', None)
+            USER_STATE.pop(f'{user_id}_withdraw_method', None)
+            await message.reply_text("❌ উইথড্র প্রসেস বাতিল করা হয়েছে।", reply_markup=main_menu_keyboard)
