@@ -2,6 +2,8 @@ import sqlite3
 from pyrogram import Client, filters
 from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton
 
+from bot import main_menu_keyboard
+
 # --- Database সেটআপ (bot.py-এর সাথে সামঞ্জস্যপূর্ণ) ---
 conn = sqlite3.connect('user_data.db', check_same_thread=False)
 cursor = conn.cursor()
