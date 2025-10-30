@@ -103,10 +103,10 @@ app = Client(
 
 # --- ফাংশন: ইউজার Database এ যোগ করা ---
 def add_user(user_id, referred_by=None):
-  global conn, cursor 
- cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
+    global conn, cursor  # <--- ৪টি স্পেস
+    cursor.execute("SELECT user_id FROM users WHERE user_id = %s", (user_id,))
     if cursor.fetchone() is None:
-        cursor.execute("INSERT INTO users (user_id, referred_by) VALUES (?, ?)", (user_id, referred_by))
+        cursor.execute("INSERT INTO users (user_id, referred_by) VALUES (%s, %s)", (user_id, referred_by))
         conn.commit()
         if referred_by:
             cursor.execute("UPDATE users SET referral_balance = referral_balance + ?, referral_count = referral_count + 1 WHERE user_id = ?", (REFER_BONUS, referred_by))
