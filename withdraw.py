@@ -2,19 +2,6 @@ import sqlite3
 from pyrogram import Client, filters
 from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton
 
-# --- কীবোর্ড সেটআপ ---
-
-
-
-withdraw_method_keyboard = ReplyKeyboardMarkup(
-
-
-
-    # ... আগের মতো
-
-
-
-)
 # --- Database সেটআপ (bot.py-এর সাথে সামঞ্জস্যপূর্ণ) ---
 conn = sqlite3.connect('user_data.db', check_same_thread=False)
 clursor = conn.cursor()
@@ -38,6 +25,22 @@ withdraw_method_keyboard = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
+main_menu_keyboard = ReplyKeyboardMarkup(
+
+    [
+
+        [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
+
+        [KeyboardButton("WITHDRAW_NOW"), KeyboardButton("👤 My Account")],
+
+        [KeyboardButton("🧾 History"), KeyboardButton("👑 Status (Admin)")]
+
+    ],
+
+
+    resize_keyboard=True
+
+)
 
 # --- হ্যান্ডলার সেটআপ ফাংশন ---
 def setup_withdraw_handlers(app: Client, shared_user_state):
