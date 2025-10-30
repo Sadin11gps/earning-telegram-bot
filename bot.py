@@ -1,5 +1,6 @@
 import os
-import sqlite3
+import psycopg2 
+from urllib.parse import urlparse
 import time
 from pyrogram import Client, filters
 from pyrogram.types import (
@@ -174,7 +175,7 @@ async def start_command(client, message):
     if add_user(user_id, referred_by):
         text = "👋 স্বাগতম! আপনি আপনার পছন্দের টাস্কগুলো করে আয় করা শুরু করতে পারেন।"
     else:
-        text = "👋 আবার স্বাগতম! নিচে মূল মেনু দেওয়া হলো।"
+        text = "👋 হ্যালো 🅳🅴🅰🆁 {first_name} ☀️\n\n෴❤️෴ 𝐖𝐞𝐥𝐜𝐨𝐦𝐞 ෴❤️෴\n\nনিচে মূল মেনু দেওয়া হলো।"
 
     await message.reply_text(
         text,
