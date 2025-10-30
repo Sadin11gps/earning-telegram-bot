@@ -25,8 +25,7 @@ withdraw_method_keyboard = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-# মূল মেনুর বাটন (Reply Keyboard) - WITHDRAW NOW ফিক্সড
-main_menu_keyboard = ReplyKeyboardMarkup(
+# মূল মেনুর বাটন (Reply Keyboard) - WITHDRAW_NOW ফিক্সড
     [
         [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
         # ফিক্সড: ইমোজি ছাড়া শুধু 'Withdraw' ব্যবহার করা হয়েছে
