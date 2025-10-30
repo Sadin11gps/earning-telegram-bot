@@ -7,7 +7,6 @@ conn = sqlite3.connect('user_data.db', check_same_thread=False)
 cursor = conn.cursor()
 
 # --- গ্লোবাল স্টেট ---
-# USER_STATE কে bot.py থেকে শেয়ার করা হয়
 USER_STATE = {} 
 
 # --- ব্যবসায়িক লজিক ভেরিয়েবল (bot.py থেকে ডুপ্লিকেট করা) ---
@@ -36,18 +35,24 @@ main_menu_keyboard = ReplyKeyboardMarkup(
 )
 
 
-# --- হ্যান্ডলার সেটআপ ফাংশন (bot.py এই ফাংশনটি কল করে) ---
+# --- হ্যান্ডলার সেটআপ ফাংশন ---
 def setup_withdraw_handlers(app: Client, shared_user_state):
     global USER_STATE
     USER_STATE = shared_user_state
     
     
     # -----------------------------------------------------
-    # হ্যান্ডলার ১: Withdraw কমান্ড শুরু (ইমোজি সহ)
+    # হ্যান্ডলার ১: Withdraw কমান্ড শুরু (ULTIMATE FIX)
     # -----------------------------------------------------
-    # নিশ্চিত করুন: filters.regex("💳 Withdraw") ইমোজি সহ আছে
-    @app.on_message(filters.regex("^💳 Withdraw$") & filters.private) 
+    # এখানে আমরা শুধুমাত্র "Withdraw" শব্দটি দিয়ে ফিল্টার করছি
+    # এর ফলে ইমোজি বা স্পেসের সমস্যা এড়ানো যাবে
+    @app.on_message(filters.regex("Withdraw") & filters.private) 
     async def withdraw_start(client, message):
+        
+        # নিশ্চিত করুন যে মেসেজটি শুধুমাত্র "💳 Withdraw" বাটন থেকেই এসেছে
+        if message.text.strip() != "💳 Withdraw":
+            return
+            
         user_id = message.from_user.id
         
         # 1. ব্যালেন্স এবং রেফার চেক
@@ -74,7 +79,6 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
             
         else:
             # 2. শর্ত পূরণ হলে উইথড্র প্রসেস শুরু
-            # প্রতিটি ইউজারের জন্য একটি স্টেট সেট করা
             USER_STATE[user_id] = 'asking_withdraw_amount'
             await message.reply_text(
                 f"✅ আপনি উইথড্র করার যোগ্য!\n"
@@ -87,18 +91,16 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
             )
 
     # -----------------------------------------------------
-    # হ্যান্ডলার ২: উইথড্র অ্যামাউন্ট ইনপুট
+    # হ্যান্ডলার ২: উইথড্র অ্যামাউন্ট ইনপুট (পূর্বের মতোই)
     # -----------------------------------------------------
     @app.on_message(filters.text & filters.private & ~filters.regex("^(BKASH|NAGAD|CANCEL|💰 Daily Bonus|🔗 Refer & Earn|💳 Withdraw|👤 My Account|🧾 History|👑 Status \(Admin\))$"))
     async def process_withdraw_amount(client, message):
         user_id = message.from_user.id
         
-        # নিশ্চিত করুন যে ইউজার সঠিক স্টেটে আছে
         if USER_STATE.get(user_id) == 'asking_withdraw_amount':
             try:
                 amount = float(message.text)
                 
-                # ব্যালেন্স পুনরায় চেক
                 cursor.execute("SELECT task_balance, referral_balance FROM users WHERE user_id = ?", (user_id,))
                 data = cursor.fetchone()
                 total_balance = data[0] + data[1]
@@ -108,7 +110,6 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
                 elif amount > total_balance:
                     await message.reply_text(f"❌ আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই। আপনার বর্তমান ব্যালেন্স: **{total_balance:.2f} টাকা**।")
                 else:
-                    # পরিমাণ বৈধ, মেথড নির্বাচন করতে বলুন
                     USER_STATE[user_id] = 'asking_withdraw_method'
                     USER_STATE[f'{user_id}_withdraw_amount'] = amount 
                     
@@ -126,7 +127,7 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
                 await message.reply_text("❌ শুধু সংখ্যা লিখুন। সঠিক পরিমাণ আবার লিখুন।")
 
     # -----------------------------------------------------
-    # হ্যান্ডলার ৩: মেথড ইনপুট
+    # হ্যান্ডলার ৩: মেথড ইনপুট (পূর্বের মতোই)
     # -----------------------------------------------------
     @app.on_message(filters.regex("^(BKASH|NAGAD)$") & filters.private)
     async def process_withdraw_method(client, message):
@@ -142,9 +143,8 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
             )
 
     # -----------------------------------------------------
-    # হ্যান্ডলার ৪: অ্যাকাউন্ট নাম্বার ইনপুট
+    # হ্যান্ডলার ৪: অ্যাকাউন্ট নাম্বার ইনপুট (পূর্বের মতোই)
     # -----------------------------------------------------
-    # এই হ্যান্ডলারটি সমস্ত নন-কমান্ড টেক্সট ধরবে যখন ইউজার সঠিক স্টেটে থাকবে
     @app.on_message(filters.text & filters.private & ~filters.regex("^(BKASH|NAGAD|CANCEL|💰 Daily Bonus|🔗 Refer & Earn|💳 Withdraw|👤 My Account|🧾 History|👑 Status \(Admin\))$"))
     async def process_account_number(client, message):
         user_id = message.from_user.id
@@ -152,7 +152,7 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
         if USER_STATE.get(user_id) == 'asking_account_number':
             account_number = message.text
             
-            # ইউজার-নির্দিষ্ট কী থেকে ডেটা পুনরুদ্ধার
+            # --- ব্যালেন্স কমানো এবং ইতিহাস সংরক্ষণ ---
             amount = USER_STATE.pop(f'{user_id}_withdraw_amount', 0)
             method = USER_STATE.pop(f'{user_id}_withdraw_method', 'N/A')
             USER_STATE.pop(user_id) # স্টেট রিসেট
@@ -163,25 +163,21 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
 
             final_amount = amount - (amount * WITHDRAW_FEE_PERCENT / 100)
             
-            # --- ব্যালেন্স কমানোর লজিক ---
             cursor.execute("SELECT task_balance, referral_balance FROM users WHERE user_id = ?", (user_id,))
             t_bal, r_bal = cursor.fetchone()
             
             remaining_amount = amount
-            
-            # প্রথমে টাস্ক ব্যালেন্স থেকে কাটুন
             if t_bal >= remaining_amount:
                 t_bal -= remaining_amount
                 remaining_amount = 0
             else:
                 remaining_amount -= t_bal
                 t_bal = 0
-                r_bal -= remaining_amount # বাকিটা রেফারেল ব্যালেন্স থেকে কাটুন
+                r_bal -= remaining_amount 
                 
             cursor.execute("UPDATE users SET task_balance = ?, referral_balance = ? WHERE user_id = ?", (t_bal, r_bal, user_id))
             conn.commit()
             
-            # 2. History তে যোগ করা
             cursor.execute(
                 "INSERT INTO withdraw_history (user_id, amount, method, account_number, status) VALUES (?, ?, ?, ?, ?)",
                 (user_id, amount, method, account_number, 'Pending')
@@ -211,14 +207,13 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
             )
             
     # -----------------------------------------------------
-    # হ্যান্ডলার ৫: CANCEL কমান্ড
+    # হ্যান্ডলার ৫: CANCEL কমান্ড (পূর্বের মতোই)
     # -----------------------------------------------------
     @app.on_message(filters.regex("CANCEL") & filters.private)
     async def withdraw_cancel(client, message):
         user_id = message.from_user.id
         
         if user_id in USER_STATE:
-            # সমস্ত সংশ্লিষ্ট স্টেট পপ করা
             USER_STATE.pop(user_id, None)
             USER_STATE.pop(f'{user_id}_withdraw_amount', None)
             USER_STATE.pop(f'{user_id}_withdraw_method', None)
