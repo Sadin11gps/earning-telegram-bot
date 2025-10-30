@@ -4,12 +4,12 @@ from pyrogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 # --- Database সেটআপ (bot.py-এর সাথে সামঞ্জস্যপূর্ণ) ---
 conn = sqlite3.connect('user_data.db', check_same_thread=False)
-clursor = conn.cursor()
+cursor = conn.cursor()
 
 # --- গ্লোবাল স্টেট ---
 USER_STATE = {} 
 
-# --- ব্যবসায়িক লজিক ভেরিয়েবল (bot.py থেকে ডুপ্লিকেট করা) ---
+# --- ব্যবসায়িক লজিক ভেরিয়েবল ---
 MIN_WITHDRAW = 1500.00       
 REQUIRED_REFERRALS = 20      
 WITHDRAW_FEE_PERCENT = 10.0  
@@ -25,22 +25,16 @@ withdraw_method_keyboard = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
+# Circular Import এড়াতে main_menu_keyboard ডেফিনিশনটি এখানে যোগ করা হলো
 main_menu_keyboard = ReplyKeyboardMarkup(
-
     [
-
         [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
-
         [KeyboardButton("WITHDRAW_NOW"), KeyboardButton("👤 My Account")],
-
         [KeyboardButton("🧾 History"), KeyboardButton("👑 Status (Admin)")]
-
     ],
-
-
     resize_keyboard=True
-
 )
+
 
 # --- হ্যান্ডলার সেটআপ ফাংশন ---
 def setup_withdraw_handlers(app: Client, shared_user_state):
@@ -51,24 +45,22 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
     # -----------------------------------------------------
     # হ্যান্ডলার ১: Withdraw কমান্ড শুরু (ULTIMATE FIX: Case-Insensitive)
     # -----------------------------------------------------
-    # হ্যান্ডলার এখন "WITHDRAW_NOW" শব্দটিকে (কেস ইগনোর করে) ধরে
     @app.on_message(filters.regex("WITHDRAW_NOW", flags=filters.re.IGNORECASE) & filters.private) 
     async def withdraw_start(client, message):
         
-        # *** চূড়ান্ত ফিক্স ***
-        # যদি মেসেজ টেক্সটটি 'withdraw_now' এর সমান না হয় (কেস ইগনোর করে), তবে সাইলেন্টলি বের হয়ে যাও।
-        if message.text.strip().lower() != "withdraw_now":
-            return
-            
+        # *** ডিবাগিং মেসেজ: হ্যান্ডলার কল হয়েছে কিনা তা নিশ্চিত করা ***
+        if message.text.strip().lower() == "withdraw_now":
+            await message.reply_text("✅ WITHDRAW HANDLER CALLED. Checking balance...")
+        
         user_id = message.from_user.id
         
         # 1. ব্যালেন্স এবং রেফার চেক
         cursor.execute("SELECT task_balance, referral_balance, referral_count FROM users WHERE user_id = ?", (user_id,))
         data = cursor.fetchone()
         
-        # যদি user data না থাকে, তবে /start কমান্ড দিতে বলুন
         if data is None:
-            await message.reply_text("❌ আপনার অ্যাকাউন্ট পাওয়া যায়নি। দয়া করে /start কমান্ড দিয়ে শুরু করুন।")
+            # শর্ত পূরণ না হলে ভুল মেসেজ দেখিয়ে মূল মেনুতে ফিরিয়ে দিন
+            await message.reply_text("❌ আপনার অ্যাকাউন্ট পাওয়া যায়নি। দয়া করে /start কমান্ড দিয়ে শুরু করুন।", reply_markup=main_menu_keyboard)
             return
 
         task_balance, referral_balance, ref_count = data
@@ -82,9 +74,8 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
             error_message += f"❌ দুঃখিত! উইথড্র করার জন্য আপনার অ্যাকাউন্টে **{REQUIRED_REFERRALS} টি রেফার** থাকা দরকার।\n"
         
         if error_message:
-            # শর্ত পূরণ না হলে ভুল মেসেজ দেখিয়ে মূল মেনুতে রাখুন
-            # main_menu_keyboard এখানে ব্যবহার করা হলো না, কারণ এটি bot.py থেকে আসবে।
-            await message.reply_text(error_message)
+            # শর্ত পূরণ না হলে ভুল মেসেজ দেখিয়ে মূল মেনুতে ফিরিয়ে দিন
+            await message.reply_text(error_message, reply_markup=main_menu_keyboard)
             
         else:
             # 2. শর্ত পূরণ হলে উইথড্র প্রসেস শুরু
@@ -112,13 +103,12 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
                 
                 cursor.execute("SELECT task_balance, referral_balance FROM users WHERE user_id = ?", (user_id,))
                 data = cursor.fetchone()
-                # ডেটা None নয় ধরে নেওয়া হলো, কারণ এটি start হ্যান্ডলারে চেক করা হয়েছে
                 total_balance = data[0] + data[1]
 
                 if amount < MIN_WITHDRAW:
-                    await message.reply_text(f"❌ উইথড্র অ্যামাউন্ট সর্বনিম্ন **{MIN_WITHDRAW:.2f} টাকা** হতে হবে। আবার লিখুন।")
+                    await message.reply_text(f"❌ উইথড্র অ্যামাউন্ট সর্বনিম্ন **{MIN_WITHDRAW:.2f} টাকা** হতে হবে। আবার লিখুন।", reply_markup=ReplyKeyboardMarkup([ [KeyboardButton("CANCEL")] ], resize_keyboard=True))
                 elif amount > total_balance:
-                    await message.reply_text(f"❌ আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই। আপনার বর্তমান ব্যালেন্স: **{total_balance:.2f} টাকা**।")
+                    await message.reply_text(f"❌ আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই। আপনার বর্তমান ব্যালেন্স: **{total_balance:.2f} টাকা**।", reply_markup=ReplyKeyboardMarkup([ [KeyboardButton("CANCEL")] ], resize_keyboard=True))
                 else:
                     USER_STATE[user_id] = 'asking_withdraw_method'
                     USER_STATE[f'{user_id}_withdraw_amount'] = amount 
@@ -134,7 +124,7 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
                     )
 
             except ValueError:
-                await message.reply_text("❌ শুধু সংখ্যা লিখুন। সঠিক পরিমাণ আবার লিখুন।")
+                await message.reply_text("❌ শুধু সংখ্যা লিখুন। সঠিক পরিমাণ আবার লিখুন।", reply_markup=ReplyKeyboardMarkup([ [KeyboardButton("CANCEL")] ], resize_keyboard=True))
 
     # -----------------------------------------------------
     # হ্যান্ডলার ৩: মেথড ইনপুট
@@ -167,12 +157,8 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
             method = USER_STATE.pop(f'{user_id}_withdraw_method', 'N/A')
             USER_STATE.pop(user_id) # স্টেট রিসেট
             
-            # এইখানে import না করে, bot.py থেকে main_menu_keyboard ভেরিয়েবলটি global করে আনতে হবে। 
-            # কিন্তু এইখানে সুবিধার জন্য আমরা ReplyKeyboardRemove বাটন ব্যবহার করব।
-            # আমরা এখন শুধু রিমুভ করব, কারণ মূল মেনু bot.py থেকে আসবে।
-            
             if amount == 0:
-                 await message.reply_text("❌ উইথড্র প্রসেসটি পুনরায় শুরু করুন (ডেটা ত্রুটি)।")
+                 await message.reply_text("❌ উইথড্র প্রসেসটি পুনরায় শুরু করুন (ডেটা ত্রুটি)।", reply_markup=main_menu_keyboard)
                  return
 
             final_amount = amount - (amount * WITHDRAW_FEE_PERCENT / 100)
@@ -204,8 +190,8 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
                 f"💰 উইথড্র অ্যামাউন্ট: {amount:.2f} টাকা\n"
                 f"🏦 মেথড: {method}\n"
                 f"🔢 অ্যাকাউন্ট: {account_number}\n"
-                f"⏱️ আপনার পেমেন্ট শীঘ্রই প্রসেস করা হবে।"
-                # মূল মেনু দেখাতে ReplyKeyboardRemove ব্যবহার করা উচিত, কিন্তু ইউজারকে অন্য বাটন প্রেস করতে বললে মেনু নিজে থেকেই ফিরে আসবে।
+                f"⏱️ আপনার পেমেন্ট শীঘ্রই প্রসেস করা হবে।",
+                reply_markup=main_menu_keyboard # মূল মেনুতে ফিরে যাওয়া
             )
             
             # 4. অ্যাডমিনকে জানানো
@@ -231,4 +217,4 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
             USER_STATE.pop(user_id, None)
             USER_STATE.pop(f'{user_id}_withdraw_amount', None)
             USER_STATE.pop(f'{user_id}_withdraw_method', None)
-            await message.reply_text("❌ উইথড্র প্রসেস বাতিল করা হয়েছে।")
+            await message.reply_text("❌ উইথড্র প্রসেস বাতিল করা হয়েছে।", reply_markup=main_menu_keyboard)
