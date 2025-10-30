@@ -72,11 +72,12 @@ conn.commit()
 # --- কীবোর্ড সেটআপ ---
 
 # মূল মেনুর বাটন (Reply Keyboard)
+# **এইখানে সব ইমোজি সরানো হয়েছে**
 main_menu_keyboard = ReplyKeyboardMarkup(
     [
-        [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
-        [KeyboardButton("💳 Withdraw"), KeyboardButton("👤 My Account")],
-        [KeyboardButton("🧾 History"), KeyboardButton("👑 Status (Admin)")]
+        [KeyboardButton("Daily Bonus"), KeyboardButton("Refer & Earn")],
+        [KeyboardButton("Withdraw"), KeyboardButton("My Account")],
+        [KeyboardButton("History"), KeyboardButton("Status (Admin)")]
     ],
     resize_keyboard=True
 )
@@ -172,8 +173,8 @@ async def start_command(client, message):
     )
 
 
-# --- হ্যান্ডলার: 💰 Daily Bonus (এখন টাস্ক মেনু দেখাবে) ---
-@app.on_message(filters.regex("💰 Daily Bonus"))
+# --- হ্যান্ডলার: Daily Bonus (ইমোজি ছাড়া) ---
+@app.on_message(filters.regex("Daily Bonus"))
 async def daily_bonus_handler(client, message):
     if is_user_blocked(message.from_user.id): return
     
@@ -185,8 +186,8 @@ async def daily_bonus_handler(client, message):
     )
 
 
-# --- হ্যান্ডলার: 🔗 Refer & Earn ---
-@app.on_message(filters.regex("🔗 Refer & Earn"))
+# --- হ্যান্ডলার: Refer & Earn (ইমোজি ছাড়া) ---
+@app.on_message(filters.regex("Refer & Earn"))
 async def refer_command(client, message):
     if is_user_blocked(message.from_user.id): return
 
@@ -210,8 +211,8 @@ async def refer_command(client, message):
     await message.reply_text(text)
 
 
-# --- হ্যান্ডলার: 👤 My Account ---
-@app.on_message(filters.regex("👤 My Account"))
+# --- হ্যান্ডলার: My Account (ইমোজি ছাড়া) ---
+@app.on_message(filters.regex("My Account"))
 async def account_command(client, message):
     if is_user_blocked(message.from_user.id): return
 
@@ -239,8 +240,8 @@ async def account_command(client, message):
     await message.reply_text(text)
 
 
-# --- হ্যান্ডলার: 🧾 History ---
-@app.on_message(filters.regex("🧾 History"))
+# --- হ্যান্ডলার: History (ইমোজি ছাড়া) ---
+@app.on_message(filters.regex("History"))
 async def history_command(client, message):
     if is_user_blocked(message.from_user.id): return
 
@@ -272,8 +273,8 @@ async def history_command(client, message):
     await message.reply_text(history_text)
 
 
-# --- হ্যান্ডলার: 👑 Status (Admin) ---
-@app.on_message(filters.regex("👑 Status \\(Admin\\)"))
+# --- হ্যান্ডলার: Status (Admin) (ইমোজি ছাড়া) ---
+@app.on_message(filters.regex("Status \\(Admin\\)"))
 async def admin_status_command(client, message):
     if is_user_blocked(message.from_user.id): return
 
@@ -312,7 +313,7 @@ async def forward_to_admin(client, message):
         return
 
     # 2. এটি নিশ্চিত করে যে এটি কোনো মেনু বাটন ক্লিক নয়
-    main_menu_texts = ["💰 Daily Bonus", "🔗 Refer & Earn", "💳 Withdraw", "👤 My Account", "🧾 History", "👑 Status (Admin)"]
+    main_menu_texts = ["Daily Bonus", "Refer & Earn", "Withdraw", "My Account", "History", "Status (Admin)"]
     if message.text in main_menu_texts:
         return
         

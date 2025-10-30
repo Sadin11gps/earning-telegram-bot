@@ -46,7 +46,7 @@ def setup_withdraw_handlers(app, USER_STATE_REF):
     global USER_STATE
     USER_STATE = USER_STATE_REF
 
-    @app.on_message(filters.regex("💳 Withdraw"))
+    @app.on_message(filters.regex("Withdraw"))
     async def withdraw_start(client, message):
         user_id = message.from_user.id
         
