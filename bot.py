@@ -10,7 +10,6 @@ from pyrogram.types import (
 )
 
 # --- মডিউল ইমপোর্ট করা ---
-# Note: USER_STATE টিকে এখান থেকে রেফারেন্স হিসেবে withdraw.py তে পাস করা হয়।
 from withdraw import setup_withdraw_handlers, USER_STATE
 from admin import setup_admin_handlers, is_user_blocked
 
@@ -18,7 +17,6 @@ from admin import setup_admin_handlers, is_user_blocked
 # **********************************************
 # **** ক্লাউড হোস্টিং-এর জন্য এনভায়রনমেন্ট ভেরিয়েবল ****
 # **********************************************
-# Railway থেকে ভেরিয়েবলগুলো লোড করা হবে
 API_ID = os.environ.get("API_ID")
 API_HASH = os.environ.get("API_HASH")
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -55,7 +53,7 @@ cursor.execute('''
     )
 ''')
 
-# উইথড্র হিস্টরি টেবিল (যদি admin.py তে না থাকে)
+# উইথড্র হিস্টরি টেবিল 
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS withdraw_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,13 +69,12 @@ conn.commit()
 
 # --- কীবোর্ড সেটআপ ---
 
-# মূল মেনুর বাটন (Reply Keyboard)
-# **এইখানে সব ইমোজি সরানো হয়েছে**
+# মূল মেনুর বাটন (Reply Keyboard) - **বাটন ও হ্যান্ডলারের সাথে ইমোজি ম্যাচ করবে**
 main_menu_keyboard = ReplyKeyboardMarkup(
     [
-        [KeyboardButton("Daily Bonus"), KeyboardButton("Refer & Earn")],
-        [KeyboardButton("Withdraw"), KeyboardButton("My Account")],
-        [KeyboardButton("History"), KeyboardButton("Status (Admin)")]
+        [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
+        [KeyboardButton("💳 Withdraw"), KeyboardButton("👤 My Account")],
+        [KeyboardButton("🧾 History"), KeyboardButton("👑 Status (Admin)")]
     ],
     resize_keyboard=True
 )
@@ -173,8 +170,8 @@ async def start_command(client, message):
     )
 
 
-# --- হ্যান্ডলার: Daily Bonus (ইমোজি ছাড়া) ---
-@app.on_message(filters.regex("Daily Bonus"))
+# --- হ্যান্ডলার: Daily Bonus (ইমোজি সহ) ---
+@app.on_message(filters.regex("💰 Daily Bonus"))
 async def daily_bonus_handler(client, message):
     if is_user_blocked(message.from_user.id): return
     
@@ -186,8 +183,8 @@ async def daily_bonus_handler(client, message):
     )
 
 
-# --- হ্যান্ডলার: Refer & Earn (ইমোজি ছাড়া) ---
-@app.on_message(filters.regex("Refer & Earn"))
+# --- হ্যান্ডলার: Refer & Earn (ইমোজি সহ) ---
+@app.on_message(filters.regex("🔗 Refer & Earn"))
 async def refer_command(client, message):
     if is_user_blocked(message.from_user.id): return
 
@@ -211,8 +208,8 @@ async def refer_command(client, message):
     await message.reply_text(text)
 
 
-# --- হ্যান্ডলার: My Account (ইমোজি ছাড়া) ---
-@app.on_message(filters.regex("My Account"))
+# --- হ্যান্ডলার: My Account (ইমোজি সহ) ---
+@app.on_message(filters.regex("👤 My Account"))
 async def account_command(client, message):
     if is_user_blocked(message.from_user.id): return
 
@@ -240,8 +237,8 @@ async def account_command(client, message):
     await message.reply_text(text)
 
 
-# --- হ্যান্ডলার: History (ইমোজি ছাড়া) ---
-@app.on_message(filters.regex("History"))
+# --- হ্যান্ডলার: History (ইমোজি সহ) ---
+@app.on_message(filters.regex("🧾 History"))
 async def history_command(client, message):
     if is_user_blocked(message.from_user.id): return
 
@@ -273,8 +270,8 @@ async def history_command(client, message):
     await message.reply_text(history_text)
 
 
-# --- হ্যান্ডলার: Status (Admin) (ইমোজি ছাড়া) ---
-@app.on_message(filters.regex("Status \\(Admin\\)"))
+# --- হ্যান্ডলার: Status (Admin) (ইমোজি সহ) ---
+@app.on_message(filters.regex("👑 Status \\(Admin\\)"))
 async def admin_status_command(client, message):
     if is_user_blocked(message.from_user.id): return
 
@@ -304,7 +301,6 @@ async def back_to_main_menu(client, callback_query):
 
 
 # --- নন-কমান্ড মেসেজ হ্যান্ডলার (এডমিনের কাছে ট্রান্সফার) ---
-# NOTE: এই হ্যান্ডলারটি withdraw.py এর হ্যান্ডলারের পরে রান হবে (group=1 এর কারণে)
 @app.on_message(filters.private & filters.text) 
 async def forward_to_admin(client, message):
     
@@ -312,8 +308,8 @@ async def forward_to_admin(client, message):
     if USER_STATE.get(message.from_user.id):
         return
 
-    # 2. এটি নিশ্চিত করে যে এটি কোনো মেনু বাটন ক্লিক নয়
-    main_menu_texts = ["Daily Bonus", "Refer & Earn", "Withdraw", "My Account", "History", "Status (Admin)"]
+    # 2. এটি নিশ্চিত করে যে এটি কোনো মেনু বাটন ক্লিক নয় (ইমোজি সহ চেক করা হচ্ছে)
+    main_menu_texts = ["💰 Daily Bonus", "🔗 Refer & Earn", "💳 Withdraw", "👤 My Account", "🧾 History", "👑 Status (Admin)"]
     if message.text in main_menu_texts:
         return
         
@@ -335,7 +331,6 @@ async def forward_to_admin(client, message):
     
 
 # --- মডিউল যুক্ত করা ---
-# এই লাইনগুলি নিশ্চিত করে যে admin.py এবং withdraw.py এর হ্যান্ডলারগুলি লোড হয়েছে।
 setup_withdraw_handlers(app, USER_STATE)
 setup_admin_handlers(app)
 
