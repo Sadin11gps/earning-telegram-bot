@@ -9,14 +9,39 @@ from pyrogram.types import (
     KeyboardButton
 )
 
-# --- মডিউল ইমপোর্ট করা ---
+# **********************************************
+# --- মডিউল ইম্পোর্ট এবং ফিউচার-প্রুফিং ---
+# **********************************************
+# এই দুটি ফাইল (admin.py, withdraw.py) অবশ্যই তৈরি থাকতে হবে
 from withdraw import setup_withdraw_handlers, USER_STATE
 from admin import setup_admin_handlers, is_user_blocked
+
+# --- Task মডিউলগুলো (task_1.py থেকে task_10.py) লোড করার সুরক্ষা লজিক ---
+task_modules = {}
+def load_task_modules():
+    global task_modules
+    for i in range(1, 11):
+        module_name = f"task_{i}"
+        try:
+            # ডাইনামিক্যালি মডিউল ইম্পোর্ট করার চেষ্টা
+            # task_1 থেকে task_10 পর্যন্ত ফাইল না থাকলে বট ক্র্যাশ করবে না।
+            task_module = __import__(module_name)
+            task_modules[f"task_{i}_module"] = task_module
+            print(f"✅ Loaded {module_name}.py successfully.")
+        except ModuleNotFoundError:
+            # ফাইল না থাকলে সতর্কতা দেখিয়ে এড়িয়ে যাবে
+            pass
+    
+# টাস্ক হ্যান্ডলার সেটআপ ফাংশন (বর্তমানে খালি)
+def setup_task_handlers(app: Client):
+    # ভবিষ্যতে Task মডিউলগুলোর ফাংশন এখানে কল হবে
+    pass 
 
 
 # **********************************************
 # **** ক্লাউড হোস্টিং-এর জন্য এনভায়রনমেন্ট ভেরিয়েবল ****
 # **********************************************
+# Railway-এ এই ভ্যালুগুলো দেওয়া আছে, তাই এখানে os.environ.get() ব্যবহার করা হয়েছে
 API_ID = os.environ.get("API_ID")
 API_HASH = os.environ.get("API_HASH")
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -69,7 +94,7 @@ conn.commit()
 
 # --- কীবোর্ড সেটআপ ---
 
-# মূল মেনুর বাটন (Reply Keyboard) - **বাটন ও হ্যান্ডলারের সাথে ইমোজি ম্যাচ করবে**
+# মূল মেনুর বাটন (Reply Keyboard) - **ইমোজি সহ**
 main_menu_keyboard = ReplyKeyboardMarkup(
     [
         [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
@@ -189,10 +214,16 @@ async def refer_command(client, message):
     if is_user_blocked(message.from_user.id): return
 
     user_id = message.from_user.id
-    referral_link = f"https://t.me/{client.me.username}?start={user_id}"
+    # ক্লায়েন্টের ইউজারনেম নিশ্চিত করুন
+    bot_username = client.me.username if client.me.username else "YourBotUsername"
+    referral_link = f"https://t.me/{bot_username}?start={user_id}"
     
     cursor.execute("SELECT referral_count FROM users WHERE user_id = ?", (user_id,))
-    ref_count = cursor.fetchone()[0]
+    data = cursor.fetchone()
+    if data:
+        ref_count = data[0]
+    else:
+        ref_count = 0
     
     text = (
         "🎉 **রেফার করে আয় করুন!**\n"
@@ -255,6 +286,7 @@ async def history_command(client, message):
 
     history_text = "🧾 **আপনার উইথড্র হিস্টরি**\n\n"
     for item in history:
+        # timestamp format: YYYY-MM-DD HH:MM:SS
         timestamp, amount, method, number, status = item
         status_emoji = "✅ Approved" if status == "Approved" else ("❌ Rejected" if status == "Rejected" else "⏳ Pending")
         
@@ -286,7 +318,7 @@ async def admin_status_command(client, message):
 # --- ক্যোয়ারি হ্যান্ডলার: টাস্ক বাটনগুলো ---
 @app.on_callback_query(filters.regex("^task_"))
 async def task_callback_handler(client, callback_query):
-    # টাস্ক লজিক এখানে যুক্ত করা হবে
+    # ভবিষ্যতে task_X.py ফাইলগুলোতে থাকা হ্যান্ডলার ফাংশনগুলো এখানে কল হবে
     await callback_query.answer("আপাতত এই টাস্কের কোড সেটআপ করা হয়নি।")
 
 # --- ক্যোয়ারি হ্যান্ডলার: Main Menu বাটন ---
@@ -304,12 +336,12 @@ async def back_to_main_menu(client, callback_query):
 @app.on_message(filters.private & filters.text) 
 async def forward_to_admin(client, message):
     
-    # 1. চেক করে যদি উইথড্র প্রসেস চলে, তবে এখানেই থেমে যাবে (withdraw.py হ্যান্ডেল করবে)
+    # 1. উইথড্র প্রসেস চলছে কিনা, তা পরীক্ষা করুন (চললে, withdraw.py হ্যান্ডেল করবে)
     if USER_STATE.get(message.from_user.id):
         return
 
-    # 2. এটি নিশ্চিত করে যে এটি কোনো মেনু বাটন ক্লিক নয় (ইমোজি সহ চেক করা হচ্ছে)
-    main_menu_texts = ["💰 Daily Bonus", "🔗 Refer & Earn", "💳 Withdraw", "👤 My Account", "🧾 History", "👑 Status (Admin)"]
+    # 2. মেনু বাটনগুলোর টেক্সট থাকলে এড়িয়ে যান
+    main_menu_texts = ["💰 Daily Bonus", "🔗 Refer & Earn", "💳 Withdraw", "👤 My Account", "🧾 History", "👑 Status (Admin)", "BKASH", "NAGAD", "CANCEL"]
     if message.text in main_menu_texts:
         return
         
@@ -330,10 +362,17 @@ async def forward_to_admin(client, message):
     )
     
 
-# --- মডিউল যুক্ত করা ---
+# **********************************************
+# --- মডিউল যুক্ত করা ও বট চালু করা ---
+# **********************************************
+
+# 1. টাস্ক মডিউল লোড করার চেষ্টা করা 
+load_task_modules()
+
+# 2. হ্যান্ডলার মডিউলগুলো চালু করা
 setup_withdraw_handlers(app, USER_STATE)
 setup_admin_handlers(app)
-
+setup_task_handlers(app) # Task মডিউলের জন্য প্রস্তুত
 
 # --- বট চালানো ---
 print("Telegram Earning Bot is starting...")
