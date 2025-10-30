@@ -24,7 +24,7 @@ conn.commit()
 # =========================================================
 # NOTE: এই TASK_NAME আপনার বাটনের টেক্সটের (যেমন: TASK-1_10 TK) প্রথম অংশের সাথে মিলতে হবে। 
 # task_1.py তে TASK-1, task_2.py তে TASK-2, ইত্যাদি হবে।
-TASK_NAME = "TASK-X"          
+TASK_NAME = "TASK-9"          
 TASK_AMOUNT = 10.00           
 VISIT_LINK = "https://example.com/taskX" 
 VISIT_TIME_SECONDS = 45       
