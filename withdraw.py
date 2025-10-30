@@ -37,7 +37,7 @@ main_menu_keyboard = ReplyKeyboardMarkup(
 
 
 # --- হ্যান্ডলার সেটআপ ফাংশন ---
-def setup_withdraw_handlers(app: Client, shared_user_state):
+def setup_withdraw_handlers(app: Client, shared_user_state, group=0):
     global USER_STATE
     USER_STATE = shared_user_state
     
@@ -45,7 +45,7 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
     # -----------------------------------------------------
     # হ্যান্ডলার ১: Withdraw কমান্ড শুরু (ULTIMATE FIX: Case-Insensitive)
     # -----------------------------------------------------
-    @app.on_message(filters.regex("WITHDRAW_NOW", flags=filters.re.IGNORECASE) & filters.private) 
+    @app.on_message(filters.regex("WITHDRAW_NOW", flags=filters.re.IGNORECASE) & filters.private, group=group) 
     async def withdraw_start(client, message):
         
         # *** ডিবাগিং মেসেজ: হ্যান্ডলার কল হয়েছে কিনা তা নিশ্চিত করা ***
