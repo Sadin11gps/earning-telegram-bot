@@ -82,8 +82,8 @@ def setup_withdraw_handlers(app: Client, user_state_dict: dict, group=0):
     # এই মডিউলে ডিক্লেয়ার করার প্রয়োজন হতে পারে যদি সেগুলো এখানে না পাওয়া যায়।
     # ধরে নিচ্ছি bot.py-এর কোডগুলো গ্লোবাল স্কোপে আছে।
     # নিরাপত্তা ও কার্যকারিতার জন্য, আমরা এখানে bot.py এর ভ্যালুগুলোকে hardcode করলাম।
-    MIN_WITHDRAW = 1500.00
-    REQUIRED_REFERRALS = 20
+    MIN_WITHDRAW = 15.00
+    REQUIRED_REFERRALS = 0
     OWNER_ID = 7702378694 # Admin ID
     WITHDRAW_FEE_PERCENT = 10.0
     
