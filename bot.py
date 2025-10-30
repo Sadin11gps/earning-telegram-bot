@@ -25,7 +25,6 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "your_bot_token")
 
 # --- Database সেটআপ ---
 DB_NAME = 'user_data.db'
-# একটি সংযোগ স্থাপন করা
 conn = sqlite3.connect(DB_NAME, check_same_thread=False)
 cursor = conn.cursor()
 
@@ -38,14 +37,27 @@ CREATE TABLE IF NOT EXISTS users (
     referrer_id INTEGER
 )
 """)
+
+# উইথড্র হিস্টরি টেবিল (যদি আপনার History বাটন কাজ করাতে চান)
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS withdrawals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    amount REAL,
+    method TEXT,
+    account_number TEXT,
+    status TEXT DEFAULT 'Pending',
+    timestamp TEXT
+)
+""")
+
 conn.commit()
 
 # --- গ্লোবাল স্টেট ---
 # এটি উইথড্র ফ্লো এবং অন্যান্য টেম্পোরারি স্টেট ট্র্যাক করতে ব্যবহৃত হয়
 USER_STATE = {}
 
-# --- কীবোর্ড ডেফিনিশন ---
-# বট মেনুর প্রধান কীবোর্ড
+# --- ✅ স্থিতিশীল মেনু কীবোর্ড ডেফিনিশন ---
 main_menu_keyboard = ReplyKeyboardMarkup(
     [
         [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
@@ -74,7 +86,6 @@ async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
     username = message.from_user.username
     
-    # রেফারেল লজিক প্রক্রিয়া করা
     referrer_id = None
     if len(message.command) > 1 and message.command[1].isdigit():
         referrer_id = int(message.command[1])
@@ -91,11 +102,43 @@ async def start_command(client: Client, message: Message):
 async def my_account_handler(client: Client, message: Message):
     """ইউজারের বর্তমান ব্যালেন্স দেখায়।"""
     user_id = message.from_user.id
-    cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT balance, (SELECT COUNT(*) FROM users WHERE referrer_id = ?) FROM users WHERE user_id = ?", (user_id, user_id))
     result = cursor.fetchone()
     balance = result[0] if result else 0.00
+    referrals = result[1] if result else 0
+
+    await message.reply_text(
+        f"👤 **আপনার একাউন্ট তথ্য:**\n"
+        f"💰 বর্তমান ব্যালেন্স: **{balance:.2f} টাকা**\n"
+        f"🔗 মোট রেফারেল: **{referrals} জন**",
+        reply_markup=main_menu_keyboard
+    )
+
+# --- হ্যান্ডলার: History (খুব সাধারণ লজিক) ---
+@Client.on_message(filters.regex("🧾 History") & filters.private)
+async def history_handler(client: Client, message: Message):
+    user_id = message.from_user.id
     
-    await message.reply_text(f"আপনার বর্তমান ব্যালেন্স: **{balance:.2f} টাকা**")
+    # উইথড্র হিস্টরি চেক করা
+    cursor.execute("SELECT amount, status, timestamp FROM withdrawals WHERE user_id = ? ORDER BY id DESC LIMIT 5", (user_id,))
+    withdrawals = cursor.fetchall()
+    
+    if not withdrawals:
+        await message.reply_text("❌ আপনার কোনো উইথড্র হিস্টরি পাওয়া যায়নি।")
+        return
+    
+    history_text = "🧾 **আপনার উইথড্র হিস্টরি (শেষ ৫টি):**\n"
+    for amount, status, timestamp in withdrawals:
+        history_text += f"- **{amount:.2f} টাকা** ({status}) - {timestamp.split(' ')[0]}\n"
+        
+    await message.reply_text(history_text)
+
+# --- হ্যান্ডলার: Status (Admin) (খুব সাধারণ লজিক) ---
+@Client.on_message(filters.regex("Status \(Admin\)") & filters.private)
+async def admin_status_handler(client: Client, message: Message):
+    # এটি Admin ID এর সাথে তুলনা করার জন্য উন্নত করা উচিত।
+    # আপাতত ধরে নেওয়া হচ্ছে যে এটি শুধুমাত্র একটি বার্তা দেখায়।
+    await message.reply_text("🌿 জরুরি প্রয়োজনে এডমিনের সাথে যোগাযোগ করুন 🌿\n\n[CONTACT]")
 
 # --- হ্যান্ডলার: সমস্ত Text মেসেজ ক্যাচ করা (ডিফল্ট ফলব্যাক) ---
 @Client.on_message(filters.text & filters.private, group=99)
@@ -126,12 +169,10 @@ app = Client(
 # --- হ্যান্ডলার সেটআপ এবং বট চালু করা ---
 if __name__ == "__main__":
     
-    # উইথড্র হ্যান্ডলার সেটআপ (গুরুত্বপূর্ণ: group=-1 প্রায়োরিটি)
-    # এটি নিশ্চিত করে যে উইথড্র হ্যান্ডলার সবার আগে চালু হয়
+    # উইথড্র হ্যান্ডলার সেটআপ
     withdraw_handlers.setup_withdraw_handlers(app, USER_STATE, group=-1) 
     
-    # ✅ সবকটি টাস্ক হ্যান্ডলার সেটআপ করা
-    # এটি আপনার 10টি টাস্ককে কার্যকর করে তোলে
+    # সবকটি টাস্ক হ্যান্ডলার সেটআপ করা
     task_1.setup_task_handlers(app) 
     task_2.setup_task_handlers(app) 
     task_3.setup_task_handlers(app) 
