@@ -25,9 +25,11 @@ withdraw_method_keyboard = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
+# মূল মেনুর বাটন (Reply Keyboard) - WITHDRAW ফিক্সড
 main_menu_keyboard = ReplyKeyboardMarkup(
     [
         [KeyboardButton("💰 Daily Bonus"), KeyboardButton("🔗 Refer & Earn")],
+        # ফিক্সড: ইমোজি ছাড়া শুধু 'Withdraw' ব্যবহার করা হয়েছে
         [KeyboardButton("Withdraw"), KeyboardButton("👤 My Account")],
         [KeyboardButton("🧾 History"), KeyboardButton("👑 Status (Admin)")]
     ],
@@ -42,15 +44,15 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
     
     
     # -----------------------------------------------------
-    # হ্যান্ডলার ১: Withdraw কমান্ড শুরু (ULTIMATE FIX)
+    # হ্যান্ডলার ১: Withdraw কমান্ড শুরু (ULTIMATE FIX: Case-Insensitive)
     # -----------------------------------------------------
-    # এখানে আমরা শুধুমাত্র "Withdraw" শব্দটি দিয়ে ফিল্টার করছি
-    # এর ফলে ইমোজি বা স্পেসের সমস্যা এড়ানো যাবে
-    @app.on_message(filters.regex("Withdraw") & filters.private) 
+    # হ্যান্ডলার এখন "Withdraw" শব্দটিকে (কেস ইগনোর করে) ধরে
+    @app.on_message(filters.regex("Withdraw", flags=filters.re.IGNORECASE) & filters.private) 
     async def withdraw_start(client, message):
         
-        # নিশ্চিত করুন যে মেসেজটি শুধুমাত্র "Withdraw" বাটন থেকেই এসেছে
-        if message.text.strip() != "Withdraw":
+        # *** চূড়ান্ত ফিক্স ***
+        # যদি মেসেজ টেক্সটটি 'withdraw' এর সমান না হয় (কেস ইগনোর করে), তবে সাইলেন্টলি বের হয়ে যাও।
+        if message.text.strip().lower() != "withdraw":
             return
             
         user_id = message.from_user.id
@@ -91,9 +93,9 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
             )
 
     # -----------------------------------------------------
-    # হ্যান্ডলার ২: উইথড্র অ্যামাউন্ট ইনপুট (পূর্বের মতোই)
+    # হ্যান্ডলার ২: উইথড্র অ্যামাউন্ট ইনপুট
     # -----------------------------------------------------
-    @app.on_message(filters.text & filters.private & ~filters.regex("^(BKASH|NAGAD|CANCEL|💰 Daily Bonus|🔗 Refer & Earn|💳 Withdraw|👤 My Account|🧾 History|👑 Status \(Admin\))$"))
+    @app.on_message(filters.text & filters.private & ~filters.regex("^(BKASH|NAGAD|CANCEL|Daily Bonus|Refer & Earn|Withdraw|My Account|History|Status \(Admin\))$", flags=filters.re.IGNORECASE))
     async def process_withdraw_amount(client, message):
         user_id = message.from_user.id
         
@@ -127,7 +129,7 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
                 await message.reply_text("❌ শুধু সংখ্যা লিখুন। সঠিক পরিমাণ আবার লিখুন।")
 
     # -----------------------------------------------------
-    # হ্যান্ডলার ৩: মেথড ইনপুট (পূর্বের মতোই)
+    # হ্যান্ডলার ৩: মেথড ইনপুট
     # -----------------------------------------------------
     @app.on_message(filters.regex("^(BKASH|NAGAD)$") & filters.private)
     async def process_withdraw_method(client, message):
@@ -143,9 +145,9 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
             )
 
     # -----------------------------------------------------
-    # হ্যান্ডলার ৪: অ্যাকাউন্ট নাম্বার ইনপুট (পূর্বের মতোই)
+    # হ্যান্ডলার ৪: অ্যাকাউন্ট নাম্বার ইনপুট
     # -----------------------------------------------------
-    @app.on_message(filters.text & filters.private & ~filters.regex("^(BKASH|NAGAD|CANCEL|💰 Daily Bonus|🔗 Refer & Earn|💳 Withdraw|👤 My Account|🧾 History|👑 Status \(Admin\))$"))
+    @app.on_message(filters.text & filters.private & ~filters.regex("^(BKASH|NAGAD|CANCEL|Daily Bonus|Refer & Earn|Withdraw|My Account|History|Status \(Admin\))$", flags=filters.re.IGNORECASE))
     async def process_account_number(client, message):
         user_id = message.from_user.id
         
@@ -207,7 +209,7 @@ def setup_withdraw_handlers(app: Client, shared_user_state):
             )
             
     # -----------------------------------------------------
-    # হ্যান্ডলার ৫: CANCEL কমান্ড (পূর্বের মতোই)
+    # হ্যান্ডলার ৫: CANCEL কমান্ড
     # -----------------------------------------------------
     @app.on_message(filters.regex("CANCEL") & filters.private)
     async def withdraw_cancel(client, message):
