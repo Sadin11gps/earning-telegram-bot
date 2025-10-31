@@ -1,7 +1,7 @@
 import os
 import time
 import asyncio
-import psycopg2 # ✅ PostgreSQL লাইব্রেরি
+import psycopg2 
 from datetime import datetime
 from pyrogram import Client, filters
 from pyrogram.types import (
@@ -9,7 +9,7 @@ from pyrogram.types import (
     InlineKeyboardButton,
     ReplyKeyboardMarkup,
     KeyboardButton,
-    Message, CallbackQuery # ✅ ফিক্সড: Pyrogram-এর প্রয়োজনীয় টাইপস
+    Message, CallbackQuery
 )
 from dotenv import load_dotenv
 
@@ -53,7 +53,7 @@ def setup_task_handlers(app: Client):
 API_ID = os.getenv("API_ID")
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-DATABASE_URL = os.getenv("DATABASE_URL") # ✅ PostgreSQL URL
+DATABASE_URL = os.getenv("DATABASE_URL")
 # **********************************************
 
 # **** অ্যাডমিন আইডি (আপনার Telegram ID) ****
@@ -108,6 +108,7 @@ def init_db():
             )
         """)
         conn.commit()
+        print("Database initialized successfully.")
         return conn, cursor
     except Exception as e:
         print(f"Database connection error: {e}")
@@ -150,38 +151,50 @@ app = Client(
     bot_token=BOT_TOKEN
 )
 
+# --- ফিক্সড: ব্লকড ইউজার চেক ---
+def is_user_blocked(user_id):
+    global conn, cursor # ✅ গ্লোবাল ডিক্লারেশন
+    
+    # ✅ NoneType ফিক্স
+    if cursor is None: return True
+    
+    # ✅ PostgreSQL (%s) ব্যবহার
+    cursor.execute("SELECT is_blocked FROM users WHERE user_id = %s", (user_id,)) 
+    result = cursor.fetchone()
+    return result and result[0] == 1
+
 # --- ফাংশন: ইউজার Database এ যোগ করা ---
 def add_user(user_id, referred_by=None):
     global conn, cursor # ✅ গ্লোবাল ডিক্লারেশন
     
-    # ✅ SQLite (?) এর বদলে PostgreSQL (%s) ব্যবহার
+    # ✅ NoneType ফিক্স
+    if cursor is None: return
+
+    # ✅ PostgreSQL (%s) ব্যবহার
     cursor.execute("SELECT user_id FROM users WHERE user_id = %s", (user_id,)) 
     if cursor.fetchone() is None:
         cursor.execute("INSERT INTO users (user_id, referred_by) VALUES (%s, %s)", (user_id, referred_by))
         conn.commit()
         if referred_by:
-            # ✅ SQLite (?) এর বদলে PostgreSQL (%s) ব্যবহার
+            # ✅ PostgreSQL (%s) ব্যবহার
             cursor.execute("UPDATE users SET referral_balance = referral_balance + %s, referral_count = referral_count + 1 WHERE user_id = %s", (REFER_BONUS, referred_by))
             conn.commit()
             return True
     return False
-
-# --- ফিক্সড: ব্লকড ইউজার চেক ---
-def is_user_blocked(user_id):
-    global conn, cursor # ✅ গ্লোবাল ডিক্লারেশন
-    
-    # ✅ SQLite (?) এর বদলে PostgreSQL (%s) ব্যবহার
-    cursor.execute("SELECT is_blocked FROM users WHERE user_id = %s", (user_id,)) 
-    result = cursor.fetchone()
-    return result and result[0] == 1
 
 
 # --- হ্যান্ডলার: /start কমান্ড ---
 @app.on_message(filters.command("start"))
 async def start_command(client, message):
     global conn, cursor # ✅ গ্লোবাল ডিক্লারেশন
+    
+    # ✅ NoneType ফিক্স (হ্যান্ডলারের শুরুতে)
+    if cursor is None:
+        await message.reply_text("⛔️ দুঃখিত! সার্ভার সংযোগের সমস্যার কারণে বটটি বর্তমানে কাজ করছে না। কিছুক্ষণ পর আবার চেষ্টা করুন।")
+        return
+    
     user_id = message.from_user.id
-    first_name = message.from_user.first_name
+    first_name = message.from_user.first_name # নাম পাওয়ার জন্য
 
     if is_user_blocked(user_id):
         await message.reply_text("❌ দুঃখিত! আপনাকে বটটি ব্যবহার থেকে ব্লক করা হয়েছে।")
@@ -192,7 +205,7 @@ async def start_command(client, message):
     if len(message.command) > 1:
         try:
             referred_by = int(message.command[1])
-            # ✅ SQLite (?) এর বদলে PostgreSQL (%s) ব্যবহার
+            # ✅ PostgreSQL (%s) ব্যবহার
             cursor.execute("SELECT user_id FROM users WHERE user_id = %s", (referred_by,)) 
             if referred_by == user_id or cursor.fetchone() is None:
                  referred_by = None
@@ -214,12 +227,17 @@ async def start_command(client, message):
     )
 
 
-# --- হ্যান্ডলার: Daily Bonus (লজিক আপনার কোড থেকে কপি করা হয়েছে) ---
+# --- হ্যান্ডলার: Daily Bonus (আপনার লজিক) ---
 @app.on_message(filters.regex("💰 Daily Bonus"))
 async def daily_bonus_handler(client, message):
     global conn, cursor # ✅ গ্লোবাল ডিক্লারেশন
     if is_user_blocked(message.from_user.id): return
     
+    # ✅ NoneType ফিক্স
+    if cursor is None:
+        await message.reply_text("⛔️ ডেটাবেস সংযোগ নেই। কিছুক্ষণ পর আবার চেষ্টা করুন।")
+        return
+        
     await message.reply_text(
         "✅ Task complete করতে নিচের বাটনগুলো ব্যবহার করুন.\n"
         "✅ নিয়ম মেনে কাজ করবেন ইনকাম নিশ্চিত🚀",
@@ -235,16 +253,22 @@ async def back_to_main_menu(client, message):
     )
 
 
-# --- হ্যান্ডলার: Refer & Earn (লজিক আপনার কোড থেকে কপি করা হয়েছে) ---
+# --- হ্যান্ডলার: Refer & Earn (আপনার লজিক) ---
 @app.on_message(filters.regex("🔗 Refer & Earn"))
 async def refer_command(client, message):
     global conn, cursor # ✅ গ্লোবাল ডিক্লারেশন
     if is_user_blocked(message.from_user.id): return
+    
+    # ✅ NoneType ফিক্স
+    if cursor is None:
+        await message.reply_text("⛔️ ডেটাবেস সংযোগ নেই। কিছুক্ষণ পর আবার চেষ্টা করুন।")
+        return
+        
     user_id = message.from_user.id
     bot_username = client.me.username if client.me.username else "YourBotUsername"
     referral_link = f"https://t.me/{bot_username}?start={user_id}"
     
-    # ✅ SQLite (?) এর বদলে PostgreSQL (%s) ব্যবহার
+    # ✅ PostgreSQL (%s) ব্যবহার
     cursor.execute("SELECT referral_count FROM users WHERE user_id = %s", (user_id,)) 
     data = cursor.fetchone()
     ref_count = data[0] if data else 0
@@ -262,18 +286,28 @@ async def refer_command(client, message):
     await message.reply_text(text)
 
 
-# --- হ্যান্ডলার: My Account (লজিক আপনার কোড থেকে কপি করা হয়েছে) ---
+# --- হ্যান্ডলার: My Account (আপনার লজিক) ---
 @app.on_message(filters.regex("👤 My Account"))
 async def account_command(client, message):
     global conn, cursor # ✅ গ্লোবাল ডিক্লারেশন
     if is_user_blocked(message.from_user.id): return
+    
+    # ✅ NoneType ফিক্স
+    if cursor is None:
+        await message.reply_text("⛔️ ডেটাবেস সংযোগ নেই। কিছুক্ষণ পর আবার চেষ্টা করুন।")
+        return
+        
     user_id = message.from_user.id
-    # ✅ SQLite (?) এর বদলে PostgreSQL (%s) ব্যবহার
+    # ✅ PostgreSQL (%s) ব্যবহার
     cursor.execute("SELECT task_balance, referral_balance, referral_count FROM users WHERE user_id = %s", (user_id,)) 
     data = cursor.fetchone()
     
     if data:
-        task_balance, referral_balance, ref_count = data
+        # PostgreSQL NUMERIC 
+        task_balance = float(data[0])
+        referral_balance = float(data[1])
+        ref_count = data[2]
+        
         total_balance = task_balance + referral_balance
         
         text = (
@@ -291,13 +325,19 @@ async def account_command(client, message):
     await message.reply_text(text)
 
 
-# --- হ্যান্ডলার: History (লজিক আপনার কোড থেকে কপি করা হয়েছে) ---
+# --- হ্যান্ডলার: History (আপনার লজিক) ---
 @app.on_message(filters.regex("🧾 History"))
 async def history_command(client, message):
     global conn, cursor # ✅ গ্লোবাল ডিক্লারেশন
     if is_user_blocked(message.from_user.id): return
+    
+    # ✅ NoneType ফিক্স
+    if cursor is None:
+        await message.reply_text("⛔️ ডেটাবেস সংযোগ নেই। কিছুক্ষণ পর আবার চেষ্টা করুন।")
+        return
+        
     user_id = message.from_user.id
-    # ✅ SQLite (?) এর বদলে PostgreSQL (%s) ব্যবহার
+    # ✅ PostgreSQL (%s) ব্যবহার
     cursor.execute(
         "SELECT timestamp, amount, method, account_number, status FROM withdraw_history WHERE user_id = %s ORDER BY timestamp DESC LIMIT 10", 
         (user_id,)
@@ -318,7 +358,7 @@ async def history_command(client, message):
         
         history_text += (
             f"📅 {formatted_timestamp[:10]} - {formatted_timestamp[11:16]}\n"
-            f"💰 {amount:.2f} ৳\n"
+            f"💰 {float(amount):.2f} ৳\n"
             f"🏦 {method}\n"
             f"🔢 {number}\n"
             f"🎨 {status_emoji}\n"
@@ -328,11 +368,17 @@ async def history_command(client, message):
     await message.reply_text(history_text)
 
 
-# --- হ্যান্ডলার: Status (Admin) (লজিক আপনার কোড থেকে কপি করা হয়েছে) ---
+# --- হ্যান্ডলার: Status (Admin) (আপনার লজিক) ---
 @app.on_message(filters.regex("👑 Status \\(Admin\\)"))
 async def admin_status_command(client, message):
     global conn, cursor # ✅ গ্লোবাল ডিক্লারেশন
     if is_user_blocked(message.from_user.id): return
+    
+    # ✅ NoneType ফিক্স
+    if cursor is None:
+        await message.reply_text("⛔️ ডেটাবেস সংযোগ নেই। কিছুক্ষণ পর আবার চেষ্টা করুন।")
+        return
+        
     contact_button = InlineKeyboardMarkup(
         [[InlineKeyboardButton("💬 CONTACT", url=f"https://t.me/{ADMIN_CONTACT_USERNAME}")]]
     )
@@ -342,17 +388,14 @@ async def admin_status_command(client, message):
 
 
 # 🟢 ✅ চূড়ান্ত ফিক্স: ডায়নামিক টাস্ক বাটন হ্যান্ডলারস
-# (Reply Keyboard এর বাটনগুলোতে ক্লিক করলে Inline Keyboard দেখানোর লজিক)
 for i in range(1, 11):
     task_name = f"TASK-{i}"
     button_text = f"🏅 {task_name}_10 TK"
-    callback_data = f"task_{i}_" # এটি task_x.py এর Handler 4 কে ট্রিগার করবে
+    callback_data = f"task_{i}_" 
     
-    # 💥 FIX: exec() ব্লকের ভেতরে InlineKeyboardButton ইমপোর্ট করা হয়েছে
     exec(f"""
 @app.on_message(filters.regex("{button_text}") & filters.private)
 async def show_task_{i}_details(client: Client, message: Message):
-    # ✅ FIX: NameError এড়াতে এখানে Pyrogram.types থেকে সরাসরি কল করা হয়েছে
     from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton 
     
     keyboard = InlineKeyboardMarkup([
@@ -370,7 +413,6 @@ async def show_task_{i}_details(client: Client, message: Message):
 # --- ক্যোয়ারি হ্যান্ডলার: Main Menu বাটন (Inline) ---
 @app.on_callback_query(filters.regex("^main_menu"))
 async def back_to_main_menu_callback(client, callback_query):
-    # ✅ গ্লোবাল ডিক্লারেশন প্রয়োজন নেই কারণ ডেটাবেস অ্যাক্সেস করছে না
     await callback_query.edit_message_text(
         "👋 আপনি মূল মেনুতে ফিরে এসেছেন।",
         reply_markup=main_menu_keyboard
@@ -383,6 +425,11 @@ async def back_to_main_menu_callback(client, callback_query):
 async def process_text_messages(client, message):
     global conn, cursor # ✅ গ্লোবাল ডিক্লারেশন
     
+    # ✅ NoneType ফিক্স
+    if cursor is None:
+        await message.reply_text("⛔️ ডেটাবেস সংযোগ নেই। কিছুক্ষণ পর আবার চেষ্টা করুন।")
+        return
+        
     main_menu_texts = ["💰 Daily Bonus", "🔗 Refer & Earn", "👤 My Account", "🧾 History", "👑 Status (Admin)", "BKASH", "NAGAD", "CANCEL", "🏠 MAIN MENU"] 
     if message.text in main_menu_texts:
         return
