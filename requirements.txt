@@ -1,4 +1,2 @@
 pyrogram
-pyrobase
-python-dotenv
 psycopg2-binary
