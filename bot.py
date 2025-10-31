@@ -87,11 +87,17 @@ conn = None
 cursor = None
 
 def init_db():
+
     global conn, cursor
+
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+
+        # ✅ এই লাইনটি পরিবর্তন করুন: sslmode='require' যোগ করা হয়েছে
+
+        conn = psycopg2.connect(DATABASE_URL, sslmode='require') 
+
         cursor = conn.cursor()
-        
+
         # ইউজার টেবিল তৈরি (PostgreSQL Syntax)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
