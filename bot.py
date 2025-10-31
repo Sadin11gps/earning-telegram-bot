@@ -32,7 +32,6 @@ import task_8
 import task_9 
 import task_10 
 
-
 # --- টাস্ক হ্যান্ডলার সেটআপ ফাংশন ---
 def setup_task_handlers(app: Client):
     task_1.setup_task_handlers(app)
@@ -53,7 +52,18 @@ def setup_task_handlers(app: Client):
 API_ID = os.getenv("API_ID")
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+
+# ✅ চূড়ান্ত ফিক্স: DATABASE_URL নিশ্চিত করা
 DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL and os.getenv("PGHOST"):
+    # Railway-এর স্বতন্ত্র ভেরিয়েবলগুলো ব্যবহার করে URL তৈরি করা
+    PGHOST = os.getenv("PGHOST")
+    PGUSER = os.getenv("PGUSER")
+    PGPASSWORD = os.getenv("PGPASSWORD")
+    PGDATABASE = os.getenv("PGDATABASE")
+    PGPORT = os.getenv("PGPORT")
+    DATABASE_URL = f"postgres://{PGUSER}:{PGPASSWORD}@{PGHOST}:{PGPORT}/{PGDATABASE}"
+
 # **********************************************
 
 # **** অ্যাডমিন আইডি (আপনার Telegram ID) ****
