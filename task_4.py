@@ -1,143 +1,159 @@
-import sqlite3
-from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-import datetime
 import time
-
-# --- Database & Task Status Table Setup ---
-conn = sqlite3.connect('user_data.db', check_same_thread=False)
-cursor = conn.cursor()
-
-# task_status টেবিল তৈরি: এটি ট্র্যাক করবে কোন ইউজার কোন টাস্ক করেছে এবং কবে করেছে
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS task_status (
-    user_id INTEGER,
-    task_name TEXT,
-    completed_at TEXT,
-    PRIMARY KEY (user_id, task_name, completed_at) 
+import datetime
+# <<<<<<< CRITICAL FIX: bot.py থেকে গ্লোবাল সংযোগ ইমপোর্ট করা হলো >>>>>>>
+# এই conn এবং cursor অবজেক্টগুলো bot.py-এ PostgreSQL দ্বারা ইনিশিয়ালাইজ করা হয়েছে
+from bot import conn, cursor, is_user_blocked 
+from pyrogram import Client, filters
+from pyrogram.types import (
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
 )
-""")
-conn.commit()
 
-# =========================================================
-# 🔴 আপনার পরিবর্তন করার জায়গা: প্রতিটি ফাইলে শুধু এই ৩টি ভেরিয়েবল পরিবর্তন করুন
-# =========================================================
-# NOTE: এই TASK_NAME আপনার বাটনের টেক্সটের (যেমন: TASK-1_10 TK) প্রথম অংশের সাথে মিলতে হবে। 
-# task_1.py তে TASK-1, task_2.py তে TASK-2, ইত্যাদি হবে।
-TASK_NAME = "TASK-4"          
-TASK_AMOUNT = 10.00           
-VISIT_LINK = "https://example.com/taskX" 
-VISIT_TIME_SECONDS = 45       
-# =========================================================
+# **********************************************
+# --- টাস্ক কনফিগারেশন ---
+# **********************************************
+TASK_NAME = "TASK-1" 
+TASK_AMOUNT = 10.00          # মেনু অনুযায়ী 10 টাকা
+VISIT_LINK = "https://otieu.com/4/100074" # আপনার দেওয়া ডেমো লিংক ব্যবহার করা হলো
+VISIT_TIME_SECONDS = 59      # 59 সেকেন্ড অপেক্ষা
+TASK_STATE = {}              # টাস্কের অস্থায়ী অবস্থা ট্র্যাকিং
 
-# টাস্কের অস্থায়ী অবস্থা ট্র্যাকিং: {user_id: start_time}
-TASK_STATE = {} 
+# **********************************************
+# --- Core Logic Functions (PostgreSQL Syntax) ---
+# **********************************************
 
-# --- Core Logic Functions ---
-
-async def check_task_completion(user_id: int, task_name: str) -> bool:
-    """
-    Checks if the user has completed this task TODAY (resets at 00:00).
-    """
-    today_date = datetime.datetime.now().strftime("%Y-%m-%d")
+# 1. টাস্ক কমপ্লিট হয়েছে কিনা, তা চেক করা
+async def check_task_completion(user_id):
+    # আজকের তারিখের স্ট্রিং: "YYYY-MM-DD"
+    today_date = datetime.datetime.now().strftime("%Y-%m-%d") 
     
+    # Task Status টেবিল চেক (PostgreSQL এর জন্য LIKE '%')
     cursor.execute("""
         SELECT * FROM task_status 
-        WHERE user_id = ? AND task_name = ? AND completed_at LIKE ?
-    """, (user_id, task_name, f"{today_date}%"))
+        WHERE user_id = %s 
+        AND task_name = %s 
+        AND completed_at LIKE %s
+    """, (user_id, TASK_NAME, f"{today_date}%")) 
     
     return cursor.fetchone() is not None
 
-async def reward_user_for_task(user_id: int, task_name: str, amount: float):
-    """Updates user balance and records completion."""
-    
-    # 1. users টেবিলে task_balance আপডেট করা
-    cursor.execute("UPDATE users SET task_balance = task_balance + ? WHERE user_id = ?", (amount, user_id))
-    
-    # 2. task_status টেবিলে সম্পন্ন হিসেবে রেকর্ড করা
+# 2. ইউজারকে রিওয়ার্ড দেওয়া এবং রেকর্ড করা
+async def reward_user_for_task(user_id):
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("INSERT INTO task_status (user_id, task_name, completed_at) VALUES (?, ?, ?)", 
-                   (user_id, task_name, current_time))
+
+    # 1. users টেবিলে task_balance আপডেট
+    cursor.execute("""
+        UPDATE users SET task_balance = task_balance + %s 
+        WHERE user_id = %s
+    """, (TASK_AMOUNT, user_id)) 
+    
+    # 2. task_status টেবিলে রেকর্ড করা
+    cursor.execute("""
+        INSERT INTO task_status (user_id, task_name, completed_at) 
+        VALUES (%s, %s, %s)
+    """, (user_id, TASK_NAME, current_time)) 
     
     conn.commit()
 
-# --- Handler Setup Function (CRITICAL FIX: Uses @app.on_callback_query) ---
-def setup_task_handlers(app: Client):
-    
-    # Handler 1: START TIMER বাটন কলব্যাক
-    # filters.regex: start_task_x
-    @app.on_callback_query(filters.regex(f"^start_{TASK_NAME.lower().replace('-', '_')}$")) 
-    async def start_task_timer(client: Client, callback_query: CallbackQuery):
+
+# **********************************************
+# --- Handler Setup Function (CRITICAL NAME FIX) ---
+# **********************************************
+# <<<<<<< CRITICAL FIX: ফাংশনের নাম setup_task_1_handler করা হলো >>>>>>>
+def setup_task_1_handler(app: Client): 
+
+    # Handler 4: টাস্ক ইনলাইন বাটন দেখানো (callback: task_1_10)
+    @app.on_callback_query(filters.regex(f"task_{TASK_NAME.split('-')[1].lower()}"))
+    async def show_task_inline_buttons(client, callback_query):
         user_id = callback_query.from_user.id
         
-        if await check_task_completion(user_id, TASK_NAME):
-            await callback_query.answer("আপনি ইতিমধ্যেই আজকের এই কাজটি সম্পন্ন করেছেন।", show_alert=True)
+        if is_user_blocked(user_id): return
+        
+        if await check_task_completion(user_id):
+            await callback_query.answer("⚠️ আপনি আজকের জন্য এই টাস্কটি ইতিমধ্যেই সম্পন্ন করেছেন।", show_alert=True)
+            return
+
+        keyboard = InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("🔗 Open Link", url=VISIT_LINK)],
+                [InlineKeyboardButton("✅ START TIMER", callback_data=f"start_task_{TASK_NAME.split('-')[1].lower()}")],
+            ]
+        )
+        
+        # মেসেজ এডিট করা
+        await callback_query.edit_message_text(
+            f"🏅 **{TASK_NAME}**\n"
+            f"💰 {TASK_AMOUNT:.2f} টাকা\n"
+            f"⏱️ {VISIT_TIME_SECONDS} সেকেন্ড লিংক ভিজিট করে অপেক্ষা করুন, তারপর 'Check' বাটনে ক্লিক করুন।\n"
+            "----------------------------\n"
+            "🌐 লিংক ভিজিট করে প্রবেশ করুন:",
+            reply_markup=keyboard
+        )
+        await callback_query.answer(f"টাস্ক: {TASK_NAME}")
+
+    # Handler 2: START TIMER বাটন কলব্যাক
+    @app.on_callback_query(filters.regex(f"start_task_{TASK_NAME.split('-')[1].lower()}"))
+    async def start_task_timer(client, callback_query):
+        user_id = callback_query.from_user.id
+        
+        if await check_task_completion(user_id):
+            await callback_query.answer("⚠️ আপনি ইতিমধ্যেই এই টাস্কটি সম্পন্ন করেছেন।", show_alert=True)
             return
 
         # টাইমার শুরু করা
         TASK_STATE[user_id] = time.time()
         
-        await callback_query.answer(f"⏱ টাইমার শুরু হয়েছে! {VISIT_TIME_SECONDS} সেকেন্ড অপেক্ষা করুন।", show_alert=True)
+        keyboard = InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("🔗 Open Link", url=VISIT_LINK)],
+                [InlineKeyboardButton("✅ I Have Visited (Check)", callback_data=f"check_task_{TASK_NAME.split('-')[1].lower()}")],
+            ]
+        )
         
-    # Handler 2: 'I Have Visited (Check)' বাটন কলব্যাক
-    # filters.regex: check_task_x
-    @app.on_callback_query(filters.regex(f"^check_{TASK_NAME.lower().replace('-', '_')}$")) 
-    async def check_task_completion_handler(client: Client, callback_query: CallbackQuery):
+        # মেসেজ এডিট করা
+        await callback_query.edit_message_text(
+            f"🏅 **{TASK_NAME}**\n"
+            f"💰 {TASK_AMOUNT:.2f} টাকা\n"
+            f"✅ **টাইমার শুরু হয়েছে!** অনুগ্রহ করে লিংকে প্রবেশ করে **{VISIT_TIME_SECONDS} সেকেন্ড** অপেক্ষা করুন।\n"
+            "----------------------------\n"
+            "🌐 লিংক ভিজিট করে প্রবেশ করুন:",
+            reply_markup=keyboard
+        )
+        await callback_query.answer("✅ টাইমার শুরু হয়েছে! এখন লিংকে যান।")
+    
+    
+    # Handler 3: 'I Have Visited (Check)' কলব্যাক
+    @app.on_callback_query(filters.regex(f"check_task_{TASK_NAME.split('-')[1].lower()}"))
+    async def check_task_completion_handler(client, callback_query):
         user_id = callback_query.from_user.id
         
-        if await check_task_completion(user_id, TASK_NAME):
-            await callback_query.answer("আপনি ইতিমধ্যেই আজকের এই কাজটি সম্পন্ন করেছেন।", show_alert=True)
+        if await check_task_completion(user_id):
+            await callback_query.answer("⚠️ আপনি আজকের টাস্কটি সম্পন্ন করেছেন।", show_alert=True)
             return
-            
+
         start_time = TASK_STATE.get(user_id)
         current_time = time.time()
         
         if not start_time:
-             await callback_query.answer("❌ অনুগ্রহ করে আগে 'START TIMER' বাটনে ক্লিক করে টাইমার শুরু করুন।", show_alert=True)
-             return
-             
+            await callback_query.answer("❌ প্রথমে 'START TIMER' বাটনে ক্লিক করুন।", show_alert=True)
+            return
+
         elapsed_time = current_time - start_time
+        remaining_time = int(VISIT_TIME_SECONDS - elapsed_time)
         
         if elapsed_time < VISIT_TIME_SECONDS:
-            remaining_time = int(VISIT_TIME_SECONDS - elapsed_time)
-            await callback_query.answer(f"❌ আপনাকে আরও {remaining_time} সেকেন্ড অপেক্ষা করতে হবে।", show_alert=True)
+            await callback_query.answer(f"⏳ অনুগ্রহ করে আরও {remaining_time} সেকেন্ড অপেক্ষা করুন।", show_alert=True)
             return
-            
+
         # রিওয়ার্ড প্রদান
-        await reward_user_for_task(user_id, TASK_NAME, TASK_AMOUNT)
-        
+        await reward_user_for_task(user_id)
+
         if user_id in TASK_STATE:
             del TASK_STATE[user_id]
-        
-        # সফলতার মেসেজ
-        await client.send_message(
-            chat_id=callback_query.message.chat.id,
-            text=f"🎉 অভিনন্দন! আপনি **{TASK_NAME}** কাজটি সফলভাবে সম্পন্ন করেছেন এবং আপনার একাউন্টে **{TASK_AMOUNT:.2f} টাকা** যোগ করা হয়েছে।"
-        )
-        await callback_query.answer("রিওয়ার্ড সফলভাবে যুক্ত হয়েছে!", show_alert=False)
 
-    # Handler 3: টাস্ক ইনলাইন বাটন দেখানোর লজিক
-    # filters.regex: task_x_
-    @app.on_callback_query(filters.regex(f"^{TASK_NAME.lower().replace('-', '_')}_"))
-    async def show_task_inline_buttons(client: Client, callback_query: CallbackQuery):
-        user_id = callback_query.from_user.id
-        
-        if await check_task_completion(user_id, TASK_NAME):
-            await callback_query.answer("আপনি আজকের কাজটি সম্পন্ন করেছেন।", show_alert=True)
-            return
-            
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📂 OPEN 📂", url=VISIT_LINK)],
-            [InlineKeyboardButton("⏱ START TIMER", callback_data=f"start_{TASK_NAME.lower().replace('-', '_')}")],
-            [InlineKeyboardButton("✅ I Have Visited (Check)", callback_data=f"check_{TASK_NAME.lower().replace('-', '_')}")] 
-        ])
-
+        # মেসেজ এডিট করে সফলতার বার্তা দেওয়া
         await callback_query.edit_message_text(
-            f"🏅 **{TASK_NAME} - ওয়েবসাইট ভিজিটিং জব** 🏅\n"
-            f"💰 {TASK_AMOUNT:.2f} টাকা\n\n"
-            f"**📜 নিয়ম:** লিঙ্কে প্রবেশ করুন, **'START TIMER'** ক্লিক করুন, **{VISIT_TIME_SECONDS} সেকেন্ড** অপেক্ষা করুন এবং **'Check'** টিপুন।",
-            reply_markup=keyboard
+            f"🎉 অভিনন্দন! আপনি **{TASK_NAME}** সফলভাবে সম্পন্ন করেছেন এবং **{TASK_AMOUNT:.2f} টাকা** আপনার Task ব্যালেন্সে যোগ করা হয়েছে।\n\n"
+            "আপনি এখন মেনুতে ফিরে যেতে পারেন।"
         )
-        await callback_query.answer("টাস্ক শুরু করুন।")
-    
-    print(f"✅ Handler for {TASK_NAME} loaded.")
+        await callback_query.answer(f"টাস্ক {TASK_NAME} সম্পন্ন!")
