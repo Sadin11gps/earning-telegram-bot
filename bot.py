@@ -1,7 +1,7 @@
 import os
-# <<<<<<< CRITICAL FIX: PostgreSQL সংযোগের জন্য psycopg2 ব্যবহার করা হলো >>>>>>>
-import psycopg2 
+# <<<<<<< CRITICAL FIX: PostgreSQL সংযোগের জন্য psycopg2 ব্যবহার করা হলো >>>>>>> 
 import time
+from db_utils import get_db_connection, conn, cursor
 from pyrogram import Client, filters
 from pyrogram.types import (
     InlineKeyboardMarkup,

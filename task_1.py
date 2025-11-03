@@ -2,7 +2,9 @@ import time
 import datetime
 # <<<<<<< CRITICAL FIX: bot.py থেকে গ্লোবাল সংযোগ ইমপোর্ট করা হলো >>>>>>>
 # এই conn এবং cursor অবজেক্টগুলো bot.py-এ PostgreSQL দ্বারা ইনিশিয়ালাইজ করা হয়েছে
-from bot import conn, cursor, is_user_blocked 
+# CRITICAL FIX: সার্কুলার ইমপোর্ট এড়ানোর জন্য
+from db_utils import conn, cursor
+from bot import is_user_blocked 
 from pyrogram import Client, filters
 from pyrogram.types import (
     InlineKeyboardMarkup,
